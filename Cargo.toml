@@ -1,0 +1,10 @@
+[package]
+name = "tokio-retry"
+version = "0.0.1"
+authors = ["Sam Rijs <srijs@airpost.net>"]
+
+[dependencies]
+either = "1.0.3"
+futures = "0.1.9"
+rand = "0.3.15"
+tokio-timer = "0.1.0"
