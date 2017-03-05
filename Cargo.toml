@@ -2,6 +2,11 @@
 name = "tokio-retry"
 version = "0.0.1"
 authors = ["Sam Rijs <srijs@airpost.net>"]
+description = "Extensible, asynchronous retry behaviours for futures/tokio"
+license = "MIT"
+repository = "https://github.com/srijs/rust-tokio-retry"
+documentation = "https://docs.rs/tokio-retry"
+keywords = ["futures", "tokio", "retry", "backoff", "delay"]
 
 [dependencies]
 either = "1.0.3"
