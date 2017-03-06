@@ -2,6 +2,10 @@
 
 Extensible, asynchronous retry behaviours based on [futures](https://crates.io/crates/futures), for the ecosystem of [tokio](https://tokio.rs/) libraries.
 
+[![crates](http://meritbadge.herokuapp.com/tokio-retry)](https://crates.io/crates/tokio-retry)
+
+[Documentation](https://docs.rs/tokio-retry)
+
 ## Installation
 
 Add this to your `Cargo.toml`:
