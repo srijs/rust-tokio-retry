@@ -2,6 +2,7 @@ use std::time::Duration;
 use super::super::RetryStrategy;
 
 /// A retry strategy driven by a fixed interval.
+#[derive(Clone)]
 pub struct FixedInterval {
     duration: Duration
 }

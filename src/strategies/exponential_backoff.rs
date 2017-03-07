@@ -4,6 +4,7 @@ use super::super::RetryStrategy;
 /// A retry strategy driven by exponential back-off.
 ///
 /// The power corresponds to the number of past attempts.
+#[derive(Clone)]
 pub struct ExponentialBackoff {
     current: u64,
     base: u64

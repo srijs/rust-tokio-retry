@@ -4,6 +4,7 @@ use rand::{random, Closed01};
 use super::RetryStrategy;
 
 /// A decorator adding full random jitter to a retry strategy.
+#[derive(Clone)]
 pub struct Jittered<S: RetryStrategy> {
     inner: S
 }

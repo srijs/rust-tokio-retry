@@ -4,6 +4,7 @@ use std::time::Duration;
 use super::RetryStrategy;
 
 /// A decorator limiting the delay between attempts.
+#[derive(Clone)]
 pub struct LimitedDelay<S: RetryStrategy> {
     inner: S,
     maximum: Duration

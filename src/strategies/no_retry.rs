@@ -2,6 +2,7 @@ use std::time::Duration;
 use super::super::RetryStrategy;
 
 /// A retry strategy that will not attempt any retries.
+#[derive(Clone)]
 pub struct NoRetry {}
 
 impl RetryStrategy for NoRetry {

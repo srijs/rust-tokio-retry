@@ -3,6 +3,7 @@ use std::time::Duration;
 use super::RetryStrategy;
 
 /// A decorator limiting the number of retries.
+#[derive(Clone)]
 pub struct LimitedRetries<S: RetryStrategy> {
     inner: S,
     current: usize,
