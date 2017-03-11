@@ -1,21 +1,48 @@
 use either::Either;
 use futures::{Async, IntoFuture, Future, Poll};
+use futures::future::{Flatten, FutureResult};
 use std::error::Error;
+use std::io;
 use std::cmp;
 use std::fmt;
-use tokio_timer::{Sleep, Timer, TimerError};
+use std::time::Duration;
+#[cfg(feature = "tokio_timer")]
+use tokio_timer;
+#[cfg(feature = "tokio_core")]
+use tokio_core::reactor;
 
 use super::strategy::RetryStrategy;
 
-/// Represents the errors possible during the execution of the `RetryFuture`.
-#[derive(Debug)]
-pub enum RetryError<E> {
-    OperationError(E),
-    TimerError(TimerError)
+pub trait Sleep {
+    type Future: Future;
+    fn sleep(&mut self, duration: Duration) -> Self::Future;
 }
 
-impl<E: cmp::PartialEq> cmp::PartialEq for RetryError<E> {
-    fn eq(&self, other: &RetryError<E>) -> bool  {
+#[cfg(feature = "tokio_timer")]
+impl Sleep for tokio_timer::Timer {
+    type Future = tokio_timer::Sleep;
+    fn sleep(&mut self, duration: Duration) -> Self::Future {
+        tokio_timer::Timer::sleep(self, duration)
+    }
+}
+
+#[cfg(feature = "tokio_core")]
+impl Sleep for reactor::Handle {
+    type Future = Flatten<FutureResult<reactor::Timeout, io::Error>>;
+    fn sleep(&mut self, duration: Duration) -> Self::Future {
+        reactor::Timeout::new(duration, self).into_future().flatten()
+    }
+}
+
+/// Represents the errors possible during the execution of the `RetryFuture`.
+#[derive(Debug)]
+pub enum RetryError<OE, TE> {
+    OperationError(OE),
+    TimerError(TE)
+}
+
+impl<OE: cmp::PartialEq, TE> cmp::PartialEq for RetryError<OE, TE> {
+    fn eq(&self, other: &RetryError<OE, TE>) -> bool  {
         match (self, other) {
             (&RetryError::TimerError(_), _) => false,
             (_, &RetryError::TimerError(_)) => false,
@@ -25,7 +52,7 @@ impl<E: cmp::PartialEq> cmp::PartialEq for RetryError<E> {
     }
 }
 
-impl<E: fmt::Display> fmt::Display for RetryError<E> {
+impl<OE: fmt::Display, TE: fmt::Display> fmt::Display for RetryError<OE, TE> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match *self {
             RetryError::OperationError(ref err) => err.fmt(formatter),
@@ -34,7 +61,7 @@ impl<E: fmt::Display> fmt::Display for RetryError<E> {
     }
 }
 
-impl<E: Error> Error for RetryError<E> {
+impl<OE: Error, TE: Error> Error for RetryError<OE, TE> {
     fn description(&self) -> &str {
         match *self {
             RetryError::OperationError(ref err) => err.description(),
@@ -50,44 +77,44 @@ impl<E: Error> Error for RetryError<E> {
     }
 }
 
-enum RetryState<A> where A: IntoFuture {
+enum RetryState<S, A> where S: Sleep, A: IntoFuture {
     Running(A::Future),
-    Sleeping(Sleep)
+    Sleeping(S::Future)
 }
 
 /// Future that drives multiple attempts at an action via a retry strategy.
-pub struct RetryFuture<S, A, F> where S: RetryStrategy, A: IntoFuture, F: FnMut() -> A {
-    timer: Timer,
-    strategy: S,
-    state: RetryState<A>,
-    action: F
+pub struct RetryFuture<S, R, A, F> where S: Sleep, R: RetryStrategy, A: IntoFuture, F: FnMut() -> A {
+    strategy: R,
+    state: RetryState<S, A>,
+    action: F,
+    sleep: S
 }
 
-pub fn retry<S, A, F>(strategy: S, timer: Timer, action: F) -> RetryFuture<S, A, F> where S: RetryStrategy, A: IntoFuture, F: FnMut() -> A {
-    RetryFuture::spawn(strategy, timer, action)
+pub fn retry<S, R, A, F>(sleep: S, strategy: R, action: F) -> RetryFuture<S, R, A, F> where S: Sleep, R: RetryStrategy, A: IntoFuture, F: FnMut() -> A {
+    RetryFuture::spawn(sleep,  strategy, action)
 }
 
-impl<S, A, F> RetryFuture<S, A, F> where S: RetryStrategy, A: IntoFuture, F: FnMut() -> A {
-    fn spawn(strategy: S, timer: Timer, mut action: F) -> RetryFuture<S, A, F> {
+impl<S, R, A, F> RetryFuture<S, R, A, F> where S: Sleep, R: RetryStrategy, A: IntoFuture, F: FnMut() -> A {
+    fn spawn(sleep: S, strategy: R, mut action: F) -> RetryFuture<S, R, A, F> {
         RetryFuture {
-            timer: timer,
             strategy: strategy,
             state: RetryState::Running(action().into_future()),
-            action: action
+            action: action,
+            sleep: sleep
         }
     }
 
-    fn attempt(&mut self) -> Poll<A::Item, RetryError<A::Error>> {
+    fn attempt(&mut self) -> Poll<A::Item, RetryError<A::Error, <S::Future as Future>::Error>> {
         let future = (self.action)().into_future();
         self.state = RetryState::Running(future);
         return self.poll();
     }
 
-    fn retry(&mut self, err: A::Error) -> Poll<A::Item, RetryError<A::Error>> {
+    fn retry(&mut self, err: A::Error) -> Poll<A::Item, RetryError<A::Error, <S::Future as Future>::Error>> {
         match self.strategy.delay() {
             None => Err(RetryError::OperationError(err)),
             Some(duration) => {
-                let future = self.timer.sleep(duration);
+                let future = self.sleep.sleep(duration);
                 self.state = RetryState::Sleeping(future);
                 return self.poll();
             }
@@ -95,9 +122,9 @@ impl<S, A, F> RetryFuture<S, A, F> where S: RetryStrategy, A: IntoFuture, F: FnM
     }
 }
 
-impl<S, A, F> Future for RetryFuture<S, A, F> where S: RetryStrategy, A: IntoFuture, F: FnMut() -> A {
+impl<S, R, A, F> Future for RetryFuture<S, R, A, F> where S: Sleep, R: RetryStrategy, A: IntoFuture, F: FnMut() -> A {
     type Item = A::Item;
-    type Error = RetryError<A::Error>;
+    type Error = RetryError<A::Error, <S::Future as Future>::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let result = match self.state {
@@ -114,7 +141,7 @@ impl<S, A, F> Future for RetryFuture<S, A, F> where S: RetryStrategy, A: IntoFut
             },
             Either::Right(poll_result) => match poll_result? {
                 Async::NotReady => Ok(Async::NotReady),
-                Async::Ready(()) => self.attempt()
+                Async::Ready(_) => self.attempt()
             }
         }
     }
@@ -126,7 +153,7 @@ fn attempts_just_once() {
     use super::strategies::NoRetry;
     let s = NoRetry{};
     let mut num_calls = 0;
-    let res = s.run(Timer::default(), || {
+    let res = s.run(tokio_timer::Timer::default(), || {
         num_calls += 1;
         Err::<(), u64>(42)
     }).wait();
@@ -142,7 +169,7 @@ fn attempts_until_max_retries_exceeded() {
     use super::strategies::FixedInterval;
     let s = FixedInterval::new(Duration::from_millis(100)).limit_retries(2);
     let mut num_calls = 0;
-    let res = s.run(Timer::default(), || {
+    let res = s.run(tokio_timer::Timer::default(), || {
         num_calls += 1;
         Err::<(), u64>(42)
     }).wait();
@@ -158,7 +185,7 @@ fn attempts_until_success() {
     use super::strategies::FixedInterval;
     let s = FixedInterval::new(Duration::from_millis(100));
     let mut num_calls = 0;
-    let res = s.run(Timer::default(), || {
+    let res = s.run(tokio_timer::Timer::default(), || {
         num_calls += 1;
         if num_calls < 4 {
             Err::<(), u64>(42)

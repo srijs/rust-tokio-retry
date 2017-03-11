@@ -1,8 +1,7 @@
 use std::time::Duration;
 use futures::IntoFuture;
-use tokio_timer::Timer;
 
-use super::future::{retry, RetryFuture};
+use super::future::{retry, Sleep, RetryFuture};
 
 mod jittered;
 mod limited_retries;
@@ -32,7 +31,7 @@ pub trait RetryStrategy {
     }
 
     /// Run the provided action, and if it fails, retry it using this strategy.
-    fn run<A, F>(self, timer: Timer, action: F) -> RetryFuture<Self, A, F> where Self: Sized, A: IntoFuture, F: FnMut() -> A {
-        retry(self, timer, action)
+    fn run<S, A, F>(self, sleep: S, action: F) -> RetryFuture<S, Self, A, F> where S: Sleep, Self: Sized, A: IntoFuture, F: FnMut() -> A {
+        retry(sleep, self, action)
     }
 }
