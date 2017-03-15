@@ -8,22 +8,12 @@ pub trait Action {
     fn run(&mut self) -> Self::Future;
 }
 
-pub struct ActionFn<F> {
-    action: F
-}
-
-impl<A: IntoFuture, F: FnMut() -> A> ActionFn<F> {
-    pub fn new(action: F) -> ActionFn<F> {
-        ActionFn{action: action}
-    }
-}
-
-impl<A: IntoFuture, F: FnMut() -> A> Action for ActionFn<F> {
-    type Item = <A::Future as Future>::Item;
-    type Error = <A::Future as Future>::Error;
-    type Future = A::Future;
+impl<T: IntoFuture, F: FnMut() -> T> Action for F {
+    type Item = T::Item;
+    type Error = T::Error;
+    type Future = T::Future;
 
     fn run(&mut self) -> Self::Future {
-        (self.action)().into_future()
+        self().into_future()
     }
 }

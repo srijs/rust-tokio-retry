@@ -46,7 +46,7 @@
 //!     let retry_strategy = ExponentialBackoff::from_millis(10)
 //!         .take(3)
 //!         .map(jitter);
-//!     let retry_future = RetryFuture::spawn_fn(Timer::default(), retry_strategy, action);
+//!     let retry_future = RetryFuture::spawn(Timer::default(), retry_strategy, action);
 //!     let retry_result = retry_future.wait();
 //!
 //!     assert_eq!(retry_result, Ok(42));
@@ -70,7 +70,7 @@ mod middleware;
 /// Assorted retry strategies including fixed interval and exponential back-off.
 pub mod strategy;
 
-pub use action::{Action, ActionFn};
+pub use action::Action;
 pub use future::{Sleep, RetryError, RetryFuture};
 #[cfg(feature = "tokio_service")]
 pub use middleware::{RetryService, ServiceRetryFuture, ServiceAction};

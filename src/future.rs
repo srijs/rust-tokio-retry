@@ -12,7 +12,7 @@ use tokio_timer;
 #[cfg(feature = "tokio_core")]
 use tokio_core::reactor;
 
-use super::{Action, ActionFn};
+use super::Action;
 
 pub trait Sleep {
     type Future: Future;
@@ -91,12 +91,6 @@ pub struct RetryFuture<S, I, A> where S: Sleep, I: Iterator<Item=Duration>, A: A
     sleep: S
 }
 
-impl<S, I, A, F> RetryFuture<S, I, ActionFn<F>> where S: Sleep, I: Iterator<Item=Duration>, F: FnMut() -> A, A: IntoFuture {
-    pub fn spawn_fn<T: IntoIterator<IntoIter=I, Item=Duration>>(sleep: S, strategy: T, action: F) -> RetryFuture<S, I, ActionFn<F>> {
-        RetryFuture::spawn(sleep, strategy, ActionFn::new(action))
-    }
-}
-
 impl<S, I, A> RetryFuture<S, I, A> where S: Sleep, I: Iterator<Item=Duration>, A: Action {
     pub fn spawn<T: IntoIterator<IntoIter=I, Item=Duration>>(sleep: S, strategy: T, mut action: A) -> RetryFuture<S, I, A> {
         RetryFuture {
@@ -155,7 +149,7 @@ fn attempts_just_once() {
     use std::default::Default;
     use std::iter::empty;
     let mut num_calls = 0;
-    let res = RetryFuture::spawn_fn(tokio_timer::Timer::default(), empty(), || {
+    let res = RetryFuture::spawn(tokio_timer::Timer::default(), empty(), || {
         num_calls += 1;
         Err::<(), u64>(42)
     }).wait();
@@ -171,7 +165,7 @@ fn attempts_until_max_retries_exceeded() {
     use super::strategy::FixedInterval;
     let s = FixedInterval::new(Duration::from_millis(100)).take(2);
     let mut num_calls = 0;
-    let res = RetryFuture::spawn_fn(tokio_timer::Timer::default(), s, || {
+    let res = RetryFuture::spawn(tokio_timer::Timer::default(), s, || {
         num_calls += 1;
         Err::<(), u64>(42)
     }).wait();
@@ -187,7 +181,7 @@ fn attempts_until_success() {
     use super::strategy::FixedInterval;
     let s = FixedInterval::new(Duration::from_millis(100));
     let mut num_calls = 0;
-    let res = RetryFuture::spawn_fn(tokio_timer::Timer::default(), s, || {
+    let res = RetryFuture::spawn(tokio_timer::Timer::default(), s, || {
         num_calls += 1;
         if num_calls < 4 {
             Err::<(), u64>(42)
