@@ -1,5 +1,5 @@
 use std::time::Duration;
-use super::super::RetryStrategy;
+use std::iter::Iterator;
 
 /// A retry strategy driven by a fixed interval.
 #[derive(Clone)]
@@ -14,8 +14,10 @@ impl FixedInterval {
     }
 }
 
-impl RetryStrategy for FixedInterval {
-    fn delay(&mut self) -> Option<Duration> {
+impl Iterator for FixedInterval {
+    type Item = Duration;
+
+    fn next(&mut self) -> Option<Duration> {
         Some(self.duration)
     }
 }
@@ -24,7 +26,7 @@ impl RetryStrategy for FixedInterval {
 fn returns_some_fixed() {
     let mut s = FixedInterval::new(Duration::from_millis(123));
 
-    assert_eq!(s.delay(), Some(Duration::from_millis(123)));
-    assert_eq!(s.delay(), Some(Duration::from_millis(123)));
-    assert_eq!(s.delay(), Some(Duration::from_millis(123)));
+    assert_eq!(s.next(), Some(Duration::from_millis(123)));
+    assert_eq!(s.next(), Some(Duration::from_millis(123)));
+    assert_eq!(s.next(), Some(Duration::from_millis(123)));
 }

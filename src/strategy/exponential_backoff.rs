@@ -1,5 +1,5 @@
 use std::time::Duration;
-use super::super::RetryStrategy;
+use std::iter::Iterator;
 
 /// A retry strategy driven by exponential back-off.
 ///
@@ -21,8 +21,10 @@ impl ExponentialBackoff {
     }
 }
 
-impl RetryStrategy for ExponentialBackoff {
-    fn delay(&mut self) -> Option<Duration> {
+impl Iterator for ExponentialBackoff {
+    type Item = Duration;
+
+    fn next(&mut self) -> Option<Duration> {
         let duration = Duration::from_millis(self.current);
         self.current = self.current * self.base;
         return Some(duration);
@@ -33,16 +35,16 @@ impl RetryStrategy for ExponentialBackoff {
 fn returns_some_exponential_base_10() {
     let mut s = ExponentialBackoff::from_millis(10);
 
-    assert_eq!(s.delay(), Some(Duration::from_millis(10)));
-    assert_eq!(s.delay(), Some(Duration::from_millis(100)));
-    assert_eq!(s.delay(), Some(Duration::from_millis(1000)));
+    assert_eq!(s.next(), Some(Duration::from_millis(10)));
+    assert_eq!(s.next(), Some(Duration::from_millis(100)));
+    assert_eq!(s.next(), Some(Duration::from_millis(1000)));
 }
 
 #[test]
 fn returns_some_exponential_base_2() {
     let mut s = ExponentialBackoff::from_millis(2);
 
-    assert_eq!(s.delay(), Some(Duration::from_millis(2)));
-    assert_eq!(s.delay(), Some(Duration::from_millis(4)));
-    assert_eq!(s.delay(), Some(Duration::from_millis(8)));
+    assert_eq!(s.next(), Some(Duration::from_millis(2)));
+    assert_eq!(s.next(), Some(Duration::from_millis(4)));
+    assert_eq!(s.next(), Some(Duration::from_millis(8)));
 }

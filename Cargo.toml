@@ -14,8 +14,10 @@ futures = "0.1.9"
 rand = "0.3.15"
 tokio-timer = { version = "0.1.0", optional = true }
 tokio-core = { version = "0.1.4", optional = true }
+tokio-service = { version = "0.1.0", optional = true }
 
 [features]
-default = ["tokio_core",  "tokio_timer"]
+default = ["tokio_core",  "tokio_timer", "tokio_service"]
 tokio_core = ["tokio-core"]
 tokio_timer = ["tokio-timer"]
+tokio_service = ["tokio-service"]

@@ -1,37 +1,15 @@
 use std::time::Duration;
-use futures::IntoFuture;
+use rand::{random, Closed01};
 
-use super::future::{retry, Sleep, RetryFuture};
+mod fixed_interval;
+mod exponential_backoff;
 
-mod jittered;
-mod limited_retries;
-mod limited_delay;
-/// Decorators adding functionality to retry strategies.
-pub mod decorators;
+pub use self::fixed_interval::FixedInterval;
+pub use self::exponential_backoff::ExponentialBackoff;
 
-/// Trait that specifies a retry behaviour.
-pub trait RetryStrategy {
-    /// If `Some` is returned, causes a delay of the specified duration before the next attempt.
-    /// If `None` is returned, causes no further attempts.
-    fn delay(&mut self) -> Option<Duration>;
-
-    /// Introduce full random jitter to the delay between attempts.
-    fn jitter(self) -> decorators::Jittered<Self> where Self: Sized {
-        jittered::jitter(self)
-    }
-
-    /// Limit the number of retries.
-    fn limit_retries(self, max_retries: usize) -> decorators::LimitedRetries<Self> where Self: Sized {
-        limited_retries::limit_retries(self, max_retries)
-    }
-
-    /// Limit the delay between attempts.
-    fn limit_delay(self, max_delay: Duration) -> decorators::LimitedDelay<Self> where Self: Sized {
-        limited_delay::limit_delay(self, max_delay)
-    }
-
-    /// Run the provided action, and if it fails, retry it using this strategy.
-    fn run<S, A, F>(self, sleep: S, action: F) -> RetryFuture<S, Self, A, F> where S: Sleep, Self: Sized, A: IntoFuture, F: FnMut() -> A {
-        retry(sleep, self, action)
-    }
+pub fn jitter(duration: Duration) -> Duration {
+    let Closed01(jitter) = random::<Closed01<f64>>();
+    let secs = ((duration.as_secs() as f64) * jitter).ceil() as u64;
+    let nanos = ((duration.subsec_nanos() as f64) * jitter).ceil() as u32;
+    return Duration::new(secs, nanos);
 }
