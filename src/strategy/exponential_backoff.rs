@@ -1,5 +1,6 @@
 use std::time::Duration;
 use std::iter::Iterator;
+use std::u64::{MAX as U64_MAX};
 
 /// A retry strategy driven by exponential back-off.
 ///
@@ -26,7 +27,13 @@ impl Iterator for ExponentialBackoff {
 
     fn next(&mut self) -> Option<Duration> {
         let duration = Duration::from_millis(self.current);
-        self.current = self.current * self.base;
+
+        if let Some(next) = self.current.checked_mul(self.base) {
+            self.current = next;
+        } else {
+            self.current = U64_MAX;
+        }
+
         return Some(duration);
     }
 }
@@ -47,4 +54,13 @@ fn returns_some_exponential_base_2() {
     assert_eq!(s.next(), Some(Duration::from_millis(2)));
     assert_eq!(s.next(), Some(Duration::from_millis(4)));
     assert_eq!(s.next(), Some(Duration::from_millis(8)));
+}
+
+#[test]
+fn saturates_at_maximum_value() {
+    let mut s = ExponentialBackoff::from_millis(U64_MAX - 1);
+
+    assert_eq!(s.next(), Some(Duration::from_millis(U64_MAX - 1)));
+    assert_eq!(s.next(), Some(Duration::from_millis(U64_MAX)));
+    assert_eq!(s.next(), Some(Duration::from_millis(U64_MAX)));
 }
