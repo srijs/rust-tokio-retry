@@ -30,9 +30,7 @@
 //! extern crate tokio_timer;
 //! extern crate tokio_retry;
 //!
-//! use std::time::Duration;
-//! use std::default::Default;
-//! use futures::future::Future;
+//! use futures::Future;
 //! use tokio_timer::Timer;
 //! use tokio_retry::RetryFuture;
 //! use tokio_retry::strategy::{ExponentialBackoff, jitter};
