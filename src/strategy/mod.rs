@@ -3,9 +3,11 @@ use rand::{random, Closed01};
 
 mod fixed_interval;
 mod exponential_backoff;
+mod fibonacci_backoff;
 
 pub use self::fixed_interval::FixedInterval;
 pub use self::exponential_backoff::ExponentialBackoff;
+pub use self::fibonacci_backoff::FibonacciBackoff;
 
 pub fn jitter(duration: Duration) -> Duration {
     let Closed01(jitter) = random::<Closed01<f64>>();
