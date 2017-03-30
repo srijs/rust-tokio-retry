@@ -23,6 +23,7 @@ impl<X: Service> Action for ServiceAction<X> where X::Request: Clone {
 
 pub type ServiceRetryFuture<S, I, X> = RetryFuture<S, I, ServiceAction<X>>;
 
+/// Middleware that adds retries to a service via a retry strategy.
 pub struct RetryService<S, I, X> {
     inner: Arc<X>,
     sleep: S,
