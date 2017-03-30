@@ -16,7 +16,7 @@ impl FixedInterval {
     /// Constructs a new fixed interval strategy,
     /// given a duration in milliseconds.
     pub fn from_millis(millis: u64) -> FixedInterval {
-        FixedInterval{duratio: Duration::from_millis(millis)}
+        FixedInterval{duration: Duration::from_millis(millis)}
     }
 }
 
