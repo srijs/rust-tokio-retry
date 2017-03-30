@@ -19,7 +19,8 @@ pub struct FibonacciBackoff {
 }
 
 impl FibonacciBackoff {
-    /// Create a new `Fibonacci` using the given duration in milliseconds.
+    /// Constructs a new fibonacci back-off strategy,
+    /// given a base duration in milliseconds.
     pub fn from_millis(millis: u64) -> FibonacciBackoff {
         FibonacciBackoff{curr: millis, next: millis}
     }

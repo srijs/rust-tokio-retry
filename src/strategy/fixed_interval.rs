@@ -12,6 +12,12 @@ impl FixedInterval {
     pub fn new(duration: Duration) -> FixedInterval {
         FixedInterval{duration: duration}
     }
+
+    /// Constructs a new fixed interval strategy,
+    /// given a duration in milliseconds.
+    pub fn from_millis(millis: u64) -> FixedInterval {
+        FixedInterval{duratio: Duration::from_millis(millis)}
+    }
 }
 
 impl Iterator for FixedInterval {
