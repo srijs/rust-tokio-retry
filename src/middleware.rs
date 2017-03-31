@@ -1,10 +1,10 @@
 use std::iter::{Iterator, IntoIterator};
 use std::time::Duration;
 use std::sync::Arc;
-use futures::Future;
 use tokio_service::Service;
+use tokio_core::reactor::Handle;
 
-use super::{Sleep, RetryFuture, RetryError, Action};
+use super::{RetryFuture, RetryError, Action};
 
 pub struct ServiceAction<X: Service> {
     inner: Arc<X>,
@@ -21,30 +21,30 @@ impl<X: Service> Action for ServiceAction<X> where X::Request: Clone {
     }
 }
 
-pub type ServiceRetryFuture<S, I, X> = RetryFuture<S, I, ServiceAction<X>>;
+pub type ServiceRetryFuture<I, X> = RetryFuture<I, ServiceAction<X>>;
 
 /// Middleware that adds retries to a service via a retry strategy.
-pub struct RetryService<S, I, X> {
+pub struct RetryService<I, X> {
     inner: Arc<X>,
-    sleep: S,
+    handle: Handle,
     strategy: I
 }
 
-impl<S: Sleep, I: Iterator<Item=Duration>, X> RetryService<S, I, X> {
-    pub fn new<T: IntoIterator<IntoIter=I, Item=Duration>>(sleep: S, strategy: T, inner: X) -> RetryService<S, I, X> {
+impl<I: Iterator<Item=Duration>, X> RetryService<I, X> {
+    pub fn new<T: IntoIterator<IntoIter=I, Item=Duration>>(handle: Handle, strategy: T, inner: X) -> RetryService<I, X> {
         RetryService{
             inner: Arc::new(inner),
-            sleep: sleep,
+            handle: handle,
             strategy: strategy.into_iter()
         }
     }
 }
 
-impl<S: Clone + Sleep, I: Clone + Iterator<Item=Duration>, X: Service> Service for RetryService<S, I, X> where X::Request: Clone {
+impl<I: Clone + Iterator<Item=Duration>, X: Service> Service for RetryService<I, X> where X::Request: Clone {
     type Request = X::Request;
     type Response = X::Response;
-    type Error = RetryError<X::Error, <S::Future as Future>::Error>;
-    type Future = ServiceRetryFuture<S, I, X>;
+    type Error = RetryError<X::Error>;
+    type Future = ServiceRetryFuture<I, X>;
 
     fn call(&self, request: Self::Request) -> Self::Future {
         let action = ServiceAction{
@@ -52,6 +52,6 @@ impl<S: Clone + Sleep, I: Clone + Iterator<Item=Duration>, X: Service> Service f
             request: request
         };
 
-        RetryFuture::spawn(self.sleep.clone(), self.strategy.clone(), action)
+        RetryFuture::spawn(self.handle.clone(), self.strategy.clone(), action)
     }
 }

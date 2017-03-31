@@ -11,18 +11,6 @@
 //! tokio-retry = "*"
 //! ```
 //!
-//! By default, `tokio-retry` will work both with the [`Handle`](https://docs.rs/tokio-core/0.1.4/tokio_core/reactor/struct.Handle.html) type from
-//! `tokio-core`, and the [`Timer`](https://docs.rs/tokio-timer/0.1.0/tokio_timer/struct.Timer.html) type from `tokio-timer`.
-//! Both of these can be disabled or enabled via cargo feature flags:
-//!
-//! ```toml
-//! [dependencies.tokio-retry]
-//! version = "*"
-//! default-features = false
-//! # enable only tokio-core compatibility
-//! features = ["tokio_core"]
-//! ```
-//!
 //! # Examples
 //!
 //! ```rust
@@ -55,21 +43,15 @@
 
 extern crate futures;
 extern crate rand;
-#[cfg(feature = "tokio_core")]
 extern crate tokio_core;
-#[cfg(feature = "tokio_timer")]
-extern crate tokio_timer;
-#[cfg(feature = "tokio_service")]
 extern crate tokio_service;
 
 mod action;
 mod future;
-#[cfg(feature = "tokio_service")]
 mod middleware;
 /// Assorted retry strategies including fixed interval and exponential back-off.
 pub mod strategy;
 
 pub use action::Action;
-pub use future::{Sleep, RetryError, RetryFuture};
-#[cfg(feature = "tokio_service")]
+pub use future::{RetryError, RetryFuture};
 pub use middleware::{RetryService, ServiceRetryFuture, ServiceAction};

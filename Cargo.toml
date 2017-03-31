@@ -6,17 +6,10 @@ description = "Extensible, asynchronous retry behaviours for futures/tokio"
 license = "MIT"
 repository = "https://github.com/srijs/rust-tokio-retry"
 documentation = "https://docs.rs/tokio-retry"
-keywords = ["futures", "tokio", "retry", "backoff", "delay"]
+keywords = ["futures", "tokio", "retry", "backoff", "delay", "middleware", "service"]
 
 [dependencies]
 futures = "0.1.11"
 rand = "0.3.15"
-tokio-timer = { version = "0.1.0", optional = true }
-tokio-core = { version = "0.1.6", optional = true }
-tokio-service = { version = "0.1.0", optional = true }
-
-[features]
-default = ["tokio_core",  "tokio_timer", "tokio_service"]
-tokio_core = ["tokio-core"]
-tokio_timer = ["tokio-timer"]
-tokio_service = ["tokio-service"]
+tokio-core = "0.1.6"
+tokio-service = "0.1.0"
