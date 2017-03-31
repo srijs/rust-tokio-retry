@@ -30,7 +30,6 @@ features = ["tokio_core"]
 ```rust
 extern crate futures;
 extern crate tokio_core;
-extern crate tokio_timer;
 extern crate tokio_retry;
 
 use tokio_core::reactor::Core;
