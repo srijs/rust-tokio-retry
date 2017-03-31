@@ -27,11 +27,10 @@
 //!
 //! ```rust
 //! extern crate futures;
-//! extern crate tokio_timer;
+//! extern crate tokio_core;
 //! extern crate tokio_retry;
 //!
-//! use futures::Future;
-//! use tokio_timer::Timer;
+//! use tokio_core::reactor::Core;
 //! use tokio_retry::RetryFuture;
 //! use tokio_retry::strategy::{ExponentialBackoff, jitter};
 //!
@@ -41,11 +40,14 @@
 //! }
 //!
 //! pub fn main() {
+//!     let mut core = Core::new().unwrap();
+//!
 //!     let retry_strategy = ExponentialBackoff::from_millis(10)
-//!         .take(3)
-//!         .map(jitter);
-//!     let retry_future = RetryFuture::spawn(Timer::default(), retry_strategy, action);
-//!     let retry_result = retry_future.wait();
+//!         .map(jitter)
+//!         .take(3);
+//!
+//!     let retry_future = RetryFuture::spawn(core.handle(), retry_strategy, action);
+//!     let retry_result = core.run(retry_future);
 //!
 //!     assert_eq!(retry_result, Ok(42));
 //! }
