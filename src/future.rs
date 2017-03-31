@@ -1,4 +1,3 @@
-use either::Either;
 use futures::{Async, IntoFuture, Future, Poll};
 use futures::future::{Flatten, FutureResult};
 use std::iter::{Iterator, IntoIterator};
@@ -117,6 +116,11 @@ impl<S, I, A> RetryFuture<S, I, A> where S: Sleep, I: Iterator<Item=Duration>, A
             }
         }
     }
+}
+
+enum Either<A, B> {
+    Left(A),
+    Right(B)
 }
 
 impl<S, I, A> Future for RetryFuture<S, I, A> where S: Sleep, I: Iterator<Item=Duration>, A: Action {

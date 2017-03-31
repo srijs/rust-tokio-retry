@@ -53,7 +53,6 @@
 //! }
 //! ```
 
-extern crate either;
 extern crate futures;
 extern crate rand;
 #[cfg(feature = "tokio_core")]
