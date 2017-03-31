@@ -18,7 +18,6 @@ tokio-retry = "*"
 ## Examples
 
 ```rust
-extern crate futures;
 extern crate tokio_core;
 extern crate tokio_retry;
 
@@ -31,7 +30,7 @@ fn action() -> Result<u64, ()> {
     Ok(42)
 }
 
-pub fn main() {
+fn main() {
     let mut core = Core::new().unwrap();
 
     let retry_strategy = ExponentialBackoff::from_millis(10)
