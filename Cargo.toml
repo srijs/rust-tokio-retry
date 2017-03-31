@@ -10,10 +10,10 @@ keywords = ["futures", "tokio", "retry", "backoff", "delay"]
 
 [dependencies]
 either = "1.0.3"
-futures = "0.1.9"
+futures = "0.1.11"
 rand = "0.3.15"
 tokio-timer = { version = "0.1.0", optional = true }
-tokio-core = { version = "0.1.4", optional = true }
+tokio-core = { version = "0.1.6", optional = true }
 tokio-service = { version = "0.1.0", optional = true }
 
 [features]
