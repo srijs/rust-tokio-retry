@@ -13,3 +13,6 @@ futures = "0.1.11"
 rand = "0.3.15"
 tokio-core = "0.1.6"
 tokio-service = "0.1.0"
+
+[dev-dependencies]
+quickcheck = "0.4.1"
