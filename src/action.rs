@@ -1,9 +1,12 @@
 use futures::{IntoFuture, Future};
 
 pub trait Action {
-    type Item;
-    type Error;
+    /// The future that this action produces.
     type Future: Future<Item=Self::Item, Error=Self::Error>;
+    /// The item that the future may resolve with.
+    type Item;
+    /// The error that the future may resolve with.
+    type Error;
 
     fn run(&mut self) -> Self::Future;
 }

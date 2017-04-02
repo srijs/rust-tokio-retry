@@ -57,6 +57,22 @@ enum RetryState<A> where A: Action {
     Sleeping(Timeout)
 }
 
+impl<A: Action> RetryState<A> {
+    fn poll(&mut self) -> RetryFuturePoll<A> {
+        match *self {
+            RetryState::Running(ref mut future) =>
+                RetryFuturePoll::Running(future.poll()),
+            RetryState::Sleeping(ref mut future) =>
+                RetryFuturePoll::Sleeping(future.poll())
+        }
+    }
+}
+
+enum RetryFuturePoll<A> where A: Action {
+    Running(Poll<A::Item, A::Error>),
+    Sleeping(Poll<(), io::Error>)
+}
+
 /// Future that drives multiple attempts at an action via a retry strategy.
 pub struct RetryFuture<I, A> where I: Iterator<Item=Duration>, A: Action {
     strategy: I,
@@ -94,31 +110,20 @@ impl<I, A> RetryFuture<I, A> where I: Iterator<Item=Duration>, A: Action {
     }
 }
 
-enum Either<A, B> {
-    Left(A),
-    Right(B)
-}
-
 impl<I, A> Future for RetryFuture<I, A> where I: Iterator<Item=Duration>, A: Action {
     type Item = A::Item;
     type Error = RetryError<A::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let result = match self.state {
-            RetryState::Running(ref mut future) =>
-                Either::Left(future.poll()),
-            RetryState::Sleeping(ref mut future) =>
-                Either::Right(future.poll().map_err(RetryError::TimerError))
-        };
-
-        match result {
-            Either::Left(poll_result) => match poll_result {
+        match self.state.poll() {
+            RetryFuturePoll::Running(poll_result) => match poll_result {
                 Ok(async) => Ok(async),
                 Err(err) => self.retry(err)
             },
-            Either::Right(poll_result) => match poll_result? {
-                Async::NotReady => Ok(Async::NotReady),
-                Async::Ready(_) => self.attempt()
+            RetryFuturePoll::Sleeping(poll_result) => match poll_result {
+                Ok(Async::NotReady) => Ok(Async::NotReady),
+                Ok(Async::Ready(_)) => self.attempt(),
+                Err(err) => Err(RetryError::TimerError(err))
             }
         }
     }
