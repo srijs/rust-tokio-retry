@@ -1,5 +1,6 @@
 use futures::{IntoFuture, Future};
 
+/// An action can be run multiple times and produces a future.
 pub trait Action {
     /// The future that this action produces.
     type Future: Future<Item=Self::Item, Error=Self::Error>;
