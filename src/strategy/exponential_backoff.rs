@@ -10,6 +10,7 @@ pub struct ExponentialBackoff {
     current: u64,
     base: u64,
     factor: u64,
+    max_delay: Option<Duration>,
 }
 
 impl ExponentialBackoff {
@@ -23,6 +24,7 @@ impl ExponentialBackoff {
             current: base,
             base: base,
             factor: 1u64,
+            max_delay: None,
         }
     }
 
@@ -33,6 +35,12 @@ impl ExponentialBackoff {
     /// Default factor is `1`.
     pub fn factor(mut self, factor: u64) -> ExponentialBackoff {
         self.factor = factor;
+        self
+    }
+
+    /// Apply a maximum delay. No retry delay will be longer than this `Duration`.
+    pub fn max_delay(mut self, duration: Duration) -> ExponentialBackoff {
+        self.max_delay = Some(duration);
         self
     }
 }
@@ -47,6 +55,13 @@ impl Iterator for ExponentialBackoff {
         } else {
             Duration::from_millis(U64_MAX)
         };
+
+        // check if we reached max delay
+        if let Some(ref max_delay) = self.max_delay {
+            if duration > *max_delay {
+                return Some(*max_delay);
+            }
+        }
 
         if let Some(next) = self.current.checked_mul(self.base) {
             self.current = next;
@@ -93,4 +108,21 @@ fn can_use_factor_to_get_seconds() {
     assert_eq!(s.next(), Some(Duration::from_secs(2)));
     assert_eq!(s.next(), Some(Duration::from_secs(4)));
     assert_eq!(s.next(), Some(Duration::from_secs(8)));
+}
+
+#[test]
+fn stops_increasing_at_max_delay() {
+    let mut s = ExponentialBackoff::from_millis(2).max_delay(Duration::from_millis(4));
+
+    assert_eq!(s.next(), Some(Duration::from_millis(2)));
+    assert_eq!(s.next(), Some(Duration::from_millis(4)));
+    assert_eq!(s.next(), Some(Duration::from_millis(4)));
+}
+
+#[test]
+fn returns_max_when_max_less_than_base() {
+    let mut s = ExponentialBackoff::from_millis(20).max_delay(Duration::from_millis(10));
+
+    assert_eq!(s.next(), Some(Duration::from_millis(10)));
+    assert_eq!(s.next(), Some(Duration::from_millis(10)));
 }

@@ -15,14 +15,25 @@ use std::u64::MAX as U64_MAX;
 #[derive(Debug, Clone)]
 pub struct FibonacciBackoff {
     curr: u64,
-    next: u64
+    next: u64,
+    max_delay: Option<Duration>,
 }
 
 impl FibonacciBackoff {
     /// Constructs a new fibonacci back-off strategy,
     /// given a base duration in milliseconds.
     pub fn from_millis(millis: u64) -> FibonacciBackoff {
-        FibonacciBackoff{curr: millis, next: millis}
+        FibonacciBackoff {
+            curr: millis,
+            next: millis,
+            max_delay: None,
+        }
+    }
+
+    /// Apply a maximum delay. No retry delay will be longer than this `Duration`.
+    pub fn max_delay(mut self, duration: Duration) -> FibonacciBackoff {
+        self.max_delay = Some(duration);
+        self
     }
 }
 
@@ -31,6 +42,12 @@ impl Iterator for FibonacciBackoff {
 
     fn next(&mut self) -> Option<Duration> {
         let duration = Duration::from_millis(self.curr);
+        // check if we reached max delay
+        if let Some(ref max_delay) = self.max_delay {
+            if duration > *max_delay {
+                return Some(*max_delay);
+            }
+        }
 
         if let Some(next_next) = self.curr.checked_add(self.next) {
             self.curr = self.next;
@@ -60,4 +77,23 @@ fn saturates_at_maximum_value() {
     let mut iter = FibonacciBackoff::from_millis(U64_MAX);
     assert_eq!(iter.next(), Some(Duration::from_millis(U64_MAX)));
     assert_eq!(iter.next(), Some(Duration::from_millis(U64_MAX)));
+}
+
+#[test]
+fn stops_increasing_at_max_delay() {
+    let mut iter = FibonacciBackoff::from_millis(10).max_delay(Duration::from_millis(50));
+    assert_eq!(iter.next(), Some(Duration::from_millis(10)));
+    assert_eq!(iter.next(), Some(Duration::from_millis(10)));
+    assert_eq!(iter.next(), Some(Duration::from_millis(20)));
+    assert_eq!(iter.next(), Some(Duration::from_millis(30)));
+    assert_eq!(iter.next(), Some(Duration::from_millis(50)));
+    assert_eq!(iter.next(), Some(Duration::from_millis(50)));
+}
+
+#[test]
+fn returns_max_when_max_less_than_base() {
+    let mut iter = FibonacciBackoff::from_millis(20).max_delay(Duration::from_millis(10));
+
+    assert_eq!(iter.next(), Some(Duration::from_millis(10)));
+    assert_eq!(iter.next(), Some(Duration::from_millis(10)));
 }
