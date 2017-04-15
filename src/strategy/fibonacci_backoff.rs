@@ -1,6 +1,6 @@
 use std::time::Duration;
 use std::iter::Iterator;
-use std::u64::{MAX as U64_MAX};
+use std::u64::MAX as U64_MAX;
 
 /// A retry strategy driven by the fibonacci series.
 ///
@@ -12,7 +12,7 @@ use std::u64::{MAX as U64_MAX};
 ///
 /// See ["A Performance Comparison of Different Backoff Algorithms under Different Rebroadcast Probabilities for MANETs."](http://www.comp.leeds.ac.uk/ukpew09/papers/12.pdf)
 /// for more details.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FibonacciBackoff {
     curr: u64,
     next: u64

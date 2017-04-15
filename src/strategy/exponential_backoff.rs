@@ -1,11 +1,11 @@
 use std::time::Duration;
 use std::iter::Iterator;
-use std::u64::{MAX as U64_MAX};
+use std::u64::MAX as U64_MAX;
 
 /// A retry strategy driven by exponential back-off.
 ///
 /// The power corresponds to the number of past attempts.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ExponentialBackoff {
     current: u64,
     base: u64
