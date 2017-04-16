@@ -2,7 +2,7 @@ use std::time::Duration;
 use std::iter::Iterator;
 
 /// A retry strategy driven by a fixed interval.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FixedInterval {
     duration: Duration
 }
