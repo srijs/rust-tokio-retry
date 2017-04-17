@@ -6,7 +6,7 @@ description = "Extensible, asynchronous retry behaviours for futures/tokio"
 license = "MIT"
 repository = "https://github.com/srijs/rust-tokio-retry"
 documentation = "https://docs.rs/tokio-retry"
-keywords = ["futures", "tokio", "retry", "backoff", "delay", "middleware", "service"]
+keywords = ["futures", "tokio", "retry", "backoff", "middleware"]
 
 [dependencies]
 futures = "0.1.11"
