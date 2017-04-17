@@ -16,6 +16,7 @@ use std::u64::MAX as U64_MAX;
 pub struct FibonacciBackoff {
     curr: u64,
     next: u64,
+    factor: u64,
     max_delay: Option<Duration>,
 }
 
@@ -26,8 +27,19 @@ impl FibonacciBackoff {
         FibonacciBackoff {
             curr: millis,
             next: millis,
+            factor: 1u64,
             max_delay: None,
         }
+    }
+
+    /// A multiplicative factor that will be applied to the retry delay.
+    ///
+    /// For example, using a factor of `1000` will make each delay in units of seconds.
+    ///
+    /// Default factor is `1`.
+    pub fn factor(mut self, factor: u64) -> FibonacciBackoff {
+        self.factor = factor;
+        self
     }
 
     /// Apply a maximum delay. No retry delay will be longer than this `Duration`.
@@ -41,7 +53,13 @@ impl Iterator for FibonacciBackoff {
     type Item = Duration;
 
     fn next(&mut self) -> Option<Duration> {
-        let duration = Duration::from_millis(self.curr);
+        // set delay duration by applying factor
+        let duration = if let Some(duration) = self.curr.checked_mul(self.factor) {
+            Duration::from_millis(duration)
+        } else {
+            Duration::from_millis(U64_MAX)
+        };
+
         // check if we reached max delay
         if let Some(ref max_delay) = self.max_delay {
             if duration > *max_delay {
@@ -96,4 +114,14 @@ fn returns_max_when_max_less_than_base() {
 
     assert_eq!(iter.next(), Some(Duration::from_millis(10)));
     assert_eq!(iter.next(), Some(Duration::from_millis(10)));
+}
+
+#[test]
+fn can_use_factor_to_get_seconds() {
+    let factor = 1000;
+    let mut s = FibonacciBackoff::from_millis(1).factor(factor);
+
+    assert_eq!(s.next(), Some(Duration::from_secs(1)));
+    assert_eq!(s.next(), Some(Duration::from_secs(1)));
+    assert_eq!(s.next(), Some(Duration::from_secs(2)));
 }
