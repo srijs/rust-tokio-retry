@@ -52,6 +52,7 @@ use tokio_core::reactor::Handle;
 use super::{Retry, Error};
 use super::action::Action;
 
+/// Represents a retryable request to a service.
 pub struct ServiceRequest<S: Service> {
     inner: Arc<S>,
     request: S::Request
@@ -74,6 +75,15 @@ pub struct Middleware<T, S> {
     strategy: T
 }
 
+/// Trait to produce iterators that will be used as retry strategies.
+///
+/// Can be implemented directly, but the simplest way to instantiate
+/// a strategy factory is by leveraging the `impl` for `Fn()`:
+///
+/// ```rust
+/// # use tokio_retry::strategy::ExponentialBackoff;
+/// let retry_strategy = || ExponentialBackoff::from_millis(10);
+/// ```
 pub trait StrategyFactory {
     type Iter: Iterator<Item=Duration>;
 
