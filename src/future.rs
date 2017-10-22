@@ -78,23 +78,43 @@ pub struct Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
     strategy: I,
     state: RetryState<A>,
     action: A,
-    handle: Handle
+    handle: Handle,
+    condition: Option<Box<FnMut(&A::Error) -> bool>>,
 }
 
 impl<I, A> Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
-    pub fn spawn<T: IntoIterator<IntoIter=I, Item=Duration>>(handle: Handle, strategy: T, mut action: A) -> Retry<I, A> {
+    pub fn spawn<T: IntoIterator<IntoIter=I, Item=Duration>>(handle: Handle, strategy: T, action: A) -> Retry<I, A> {
+        Retry::new(handle, strategy, action, None)
+    }
+
+    pub fn with_condition<T: IntoIterator<IntoIter=I, Item=Duration>>(
+        handle: Handle,
+        strategy: T,
+        action: A,
+        condition: Box<FnMut(&A::Error) -> bool>
+    ) -> Retry<I, A> {
+        Retry::new(handle, strategy, action, Some(condition))
+    }
+
+    fn new<T: IntoIterator<IntoIter=I, Item=Duration>>(
+        handle: Handle,
+        strategy: T,
+        mut action: A,
+        condition: Option<Box<FnMut(&A::Error) -> bool>>
+    ) -> Retry<I, A> {
         Retry {
             strategy: strategy.into_iter(),
             state: RetryState::Running(action.run()),
             action: action,
-            handle: handle
+            handle: handle,
+            condition: condition,
         }
     }
 
     fn attempt(&mut self) -> Poll<A::Item, Error<A::Error>> {
         let future = self.action.run();
         self.state = RetryState::Running(future);
-        return self.poll();
+        self.poll()
     }
 
     fn retry(&mut self, err: A::Error) -> Poll<A::Item, Error<A::Error>> {
@@ -104,7 +124,7 @@ impl<I, A> Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
                 let future = Timeout::new(duration, &self.handle)
                     .map_err(Error::TimerError)?;
                 self.state = RetryState::Sleeping(future);
-                return self.poll();
+                self.poll()
             }
         }
     }
@@ -118,7 +138,14 @@ impl<I, A> Future for Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
         match self.state.poll() {
             RetryFuturePoll::Running(poll_result) => match poll_result {
                 Ok(async) => Ok(async),
-                Err(err) => self.retry(err)
+                Err(err) => {
+                    if let Some(ref mut condition) = self.condition {
+                        if !(*condition)(&err) {
+                            return Err(Error::OperationError(err));
+                        }
+                    }
+                    self.retry(err)
+                }
             },
             RetryFuturePoll::Sleeping(poll_result) => match poll_result {
                 Ok(Async::NotReady) => Ok(Async::NotReady),
@@ -187,4 +214,24 @@ fn attempts_until_success() {
 
     assert_eq!(res, Ok(()));
     assert_eq!(num_calls, 4);
+}
+
+#[test]
+fn attempts_retry_only_if_given_condition_is_true() {
+    use tokio_core::reactor::Core;
+    use super::strategy::FixedInterval;
+    let s = FixedInterval::from_millis(100).take(5);
+    let mut core = Core::new().unwrap();
+    let mut num_calls = 0;
+    let res = {
+        let action = || {
+            num_calls += 1;
+            Err::<(), u64>(num_calls)
+        };
+        let fut = Retry::with_condition(core.handle(), s, action, Box::new(|e| *e < 3));
+        core.run(fut)
+    };
+
+    assert_eq!(res, Err(Error::OperationError(3)));
+    assert_eq!(num_calls, 3);
 }
