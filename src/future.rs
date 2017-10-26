@@ -74,23 +74,16 @@ enum RetryFuturePoll<A> where A: Action {
     Sleeping(Poll<(), io::Error>)
 }
 
-struct RetryAlways;
-
-impl<E> Condition<E> for RetryAlways {
-    fn should_retry(&mut self, _error: &E) -> bool {
-        true
-    }
-}
-
 /// Future that drives multiple attempts at an action via a retry strategy.
 pub struct Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
-    retry_if: RetryIf<I, A, RetryAlways>
+    retry_if: RetryIf<I, A, fn(&A::Error) -> bool>
 }
 
 impl<I, A> Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
     pub fn spawn<T: IntoIterator<IntoIter=I, Item=Duration>>(handle: Handle, strategy: T, action: A) -> Retry<I, A> {
+        fn retry_always<A: Action>(_error: &A::Error) -> bool { true };
         Retry {
-            retry_if: RetryIf::with_condition(handle, strategy, action, RetryAlways)
+            retry_if: RetryIf::with_condition(handle, strategy, action, retry_always::<A>)
         }
     }
 }
