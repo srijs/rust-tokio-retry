@@ -97,6 +97,8 @@ impl<I, A> Future for Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
     }
 }
 
+/// Future that drives multiple attempts at an action via a retry strategy. Retries are only attempted if
+/// the `Error` returned by the future satisfies a given condition.
 pub struct RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: Condition<A::Error> {
     strategy: I,
     state: RetryState<A>,

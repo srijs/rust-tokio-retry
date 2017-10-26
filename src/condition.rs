@@ -1,3 +1,4 @@
+/// Specifies under which conditions a retry is attempted.
 pub trait Condition<E> {
     fn should_retry(&mut self, error: &E) -> bool;
 }
