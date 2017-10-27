@@ -46,11 +46,13 @@ extern crate tokio_core;
 extern crate tokio_service;
 
 mod action;
+mod condition;
 mod future;
 pub mod middleware;
 /// Assorted retry strategies including fixed interval and exponential back-off.
 pub mod strategy;
 
 pub use action::Action;
-pub use future::{Error, Retry};
+pub use condition::Condition;
+pub use future::{Error, Retry, RetryIf};
 pub use middleware::Middleware;
