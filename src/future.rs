@@ -81,9 +81,8 @@ pub struct Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
 
 impl<I, A> Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
     pub fn spawn<T: IntoIterator<IntoIter=I, Item=Duration>>(handle: Handle, strategy: T, action: A) -> Retry<I, A> {
-        fn retry_always<A: Action>(_error: &A::Error) -> bool { true };
         Retry {
-            retry_if: RetryIf::with_condition(handle, strategy, action, retry_always::<A>)
+            retry_if: RetryIf::spawn(handle, strategy, action, (|_| true) as fn(&A::Error) -> bool)
         }
     }
 }
@@ -108,7 +107,7 @@ pub struct RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: Cond
 }
 
 impl<I, A, C> RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: Condition<A::Error> {
-    pub fn with_condition<T: IntoIterator<IntoIter=I, Item=Duration>>(
+    pub fn spawn<T: IntoIterator<IntoIter=I, Item=Duration>>(
         handle: Handle,
         strategy: T,
         mut action: A,
@@ -239,7 +238,7 @@ fn attempts_retry_only_if_given_condition_is_true() {
             num_calls += 1;
             Err::<(), u64>(num_calls)
         };
-        let fut = RetryIf::with_condition(core.handle(), s, action, |e: &u64| *e < 3);
+        let fut = RetryIf::spawn(core.handle(), s, action, |e: &u64| *e < 3);
         core.run(fut)
     };
 
