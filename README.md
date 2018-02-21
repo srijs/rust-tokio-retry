@@ -4,6 +4,8 @@ Extensible, asynchronous retry behaviours based on [futures](https://crates.io/c
 
 [![Build Status](https://travis-ci.org/srijs/rust-tokio-retry.svg?branch=master)](https://travis-ci.org/srijs/rust-tokio-retry)
 [![crates](http://meritbadge.herokuapp.com/tokio-retry)](https://crates.io/crates/tokio-retry)
+[![dependency status](https://deps.rs/repo/github/srijs/rust-tokio-retry/status.svg)](https://deps.rs/repo/github/srijs/rust-tokio-retry)
+
 
 [Documentation](https://docs.rs/tokio-retry)
 
