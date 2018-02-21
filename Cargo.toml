@@ -10,7 +10,7 @@ keywords = ["futures", "tokio", "retry", "backoff", "middleware"]
 
 [dependencies]
 futures = "0.1.11"
-rand = "0.3.15"
+rand = "0.4.0"
 tokio-core = "0.1.6"
 tokio-service = "0.1.0"
 
