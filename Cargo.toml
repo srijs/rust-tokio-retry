@@ -11,8 +11,8 @@ keywords = ["futures", "tokio", "retry", "backoff", "middleware"]
 [dependencies]
 futures = "0.1.11"
 rand = "0.4.0"
-tokio-core = "0.1.6"
-tokio-service = "0.1.0"
+tokio-timer = "0.2.1"
 
 [dev-dependencies]
 quickcheck = "0.6.0"
+tokio = "0.1.5"

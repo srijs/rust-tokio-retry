@@ -14,10 +14,12 @@
 //! # Examples
 //!
 //! ```rust
-//! extern crate tokio_core;
+//! extern crate futures;
+//! extern crate tokio;
 //! extern crate tokio_retry;
 //!
-//! use tokio_core::reactor::Core;
+//! use futures::Future;
+//! use futures::future::lazy;
 //! use tokio_retry::Retry;
 //! use tokio_retry::strategy::{ExponentialBackoff, jitter};
 //!
@@ -27,32 +29,29 @@
 //! }
 //!
 //! fn main() {
-//!     let mut core = Core::new().unwrap();
+//!     tokio::run(lazy(|| {
+//!         let retry_strategy = ExponentialBackoff::from_millis(10)
+//!             .map(jitter)
+//!             .take(3);
 //!
-//!     let retry_strategy = ExponentialBackoff::from_millis(10)
-//!         .map(jitter)
-//!         .take(3);
-//!
-//!     let retry_future = Retry::spawn(core.handle(), retry_strategy, action);
-//!     let retry_result = core.run(retry_future);
-//!
-//!     assert_eq!(retry_result, Ok(42));
+//!         Retry::spawn(retry_strategy, action).then(|result| {
+//!             println!("result {:?}", result);
+//!             Ok(())
+//!         })
+//!     }));
 //! }
 //! ```
 
 extern crate futures;
 extern crate rand;
-extern crate tokio_core;
-extern crate tokio_service;
+extern crate tokio_timer;
 
 mod action;
 mod condition;
 mod future;
-pub mod middleware;
 /// Assorted retry strategies including fixed interval and exponential back-off.
 pub mod strategy;
 
 pub use action::Action;
 pub use condition::Condition;
 pub use future::{Error, Retry, RetryIf};
-pub use middleware::Middleware;

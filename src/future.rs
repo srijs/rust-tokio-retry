@@ -1,11 +1,12 @@
-use futures::{Async, Future, Poll};
 use std::iter::{Iterator, IntoIterator};
 use std::error;
-use std::io;
 use std::cmp;
 use std::fmt;
-use std::time::Duration;
-use tokio_core::reactor::{Handle, Timeout};
+use std::time::{Duration, Instant};
+
+use futures::{Async, Future, Poll};
+use tokio_timer::{Delay, Error as TimerError};
+use tokio_timer::timer::Handle;
 
 use super::action::Action;
 use super::condition::Condition;
@@ -14,7 +15,7 @@ use super::condition::Condition;
 #[derive(Debug)]
 pub enum Error<E> {
     OperationError(E),
-    TimerError(io::Error)
+    TimerError(TimerError)
 }
 
 impl<E: cmp::PartialEq> cmp::PartialEq for Error<E> {
@@ -55,7 +56,7 @@ impl<E: error::Error> error::Error for Error<E> {
 
 enum RetryState<A> where A: Action {
     Running(A::Future),
-    Sleeping(Timeout)
+    Sleeping(Delay)
 }
 
 impl<A: Action> RetryState<A> {
@@ -71,7 +72,7 @@ impl<A: Action> RetryState<A> {
 
 enum RetryFuturePoll<A> where A: Action {
     Running(Poll<A::Item, A::Error>),
-    Sleeping(Poll<(), io::Error>)
+    Sleeping(Poll<(), TimerError>)
 }
 
 /// Future that drives multiple attempts at an action via a retry strategy.
@@ -80,9 +81,13 @@ pub struct Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
 }
 
 impl<I, A> Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
-    pub fn spawn<T: IntoIterator<IntoIter=I, Item=Duration>>(handle: Handle, strategy: T, action: A) -> Retry<I, A> {
+    pub fn spawn<T: IntoIterator<IntoIter=I, Item=Duration>>(strategy: T, action: A) -> Retry<I, A> {
+        Retry::spawn_with_handle(Handle::current(), strategy, action)
+    }
+
+    pub fn spawn_with_handle<T: IntoIterator<IntoIter=I, Item=Duration>>(handle: Handle, strategy: T, action: A) -> Retry<I, A> {
         Retry {
-            retry_if: RetryIf::spawn(handle, strategy, action, (|_| true) as fn(&A::Error) -> bool)
+            retry_if: RetryIf::spawn_with_handle(handle, strategy, action, (|_| true) as fn(&A::Error) -> bool)
         }
     }
 }
@@ -108,6 +113,14 @@ pub struct RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: Cond
 
 impl<I, A, C> RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: Condition<A::Error> {
     pub fn spawn<T: IntoIterator<IntoIter=I, Item=Duration>>(
+        strategy: T,
+        action: A,
+        condition: C
+    ) -> RetryIf<I, A, C> {
+        RetryIf::spawn_with_handle(Handle::current(), strategy, action, condition)
+    }
+
+    pub fn spawn_with_handle<T: IntoIterator<IntoIter=I, Item=Duration>>(
         handle: Handle,
         strategy: T,
         mut action: A,
@@ -132,8 +145,8 @@ impl<I, A, C> RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: C
         match self.strategy.next() {
             None => Err(Error::OperationError(err)),
             Some(duration) => {
-                let future = Timeout::new(duration, &self.handle)
-                    .map_err(Error::TimerError)?;
+                let deadline = Instant::now() + duration;
+                let future = self.handle.delay(deadline);
                 self.state = RetryState::Sleeping(future);
                 self.poll()
             }
@@ -164,84 +177,4 @@ impl<I, A, C> Future for RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: A
             }
         }
     }
-}
-
-#[test]
-fn attempts_just_once() {
-    use tokio_core::reactor::Core;
-    use std::iter::empty;
-    let mut core = Core::new().unwrap();
-    let mut num_calls = 0;
-    let res = {
-        let fut = Retry::spawn(core.handle(), empty(), || {
-            num_calls += 1;
-            Err::<(), u64>(42)
-        });
-        core.run(fut)
-    };
-
-    assert_eq!(res, Err(Error::OperationError(42)));
-    assert_eq!(num_calls, 1);
-}
-
-#[test]
-fn attempts_until_max_retries_exceeded() {
-    use tokio_core::reactor::Core;
-    use super::strategy::FixedInterval;
-    let s = FixedInterval::from_millis(100).take(2);
-    let mut core = Core::new().unwrap();
-    let mut num_calls = 0;
-    let res = {
-        let fut = Retry::spawn(core.handle(), s, || {
-            num_calls += 1;
-            Err::<(), u64>(42)
-        });
-        core.run(fut)
-    };
-
-    assert_eq!(res, Err(Error::OperationError(42)));
-    assert_eq!(num_calls, 3);
-}
-
-#[test]
-fn attempts_until_success() {
-    use tokio_core::reactor::Core;
-    use super::strategy::FixedInterval;
-    let s = FixedInterval::from_millis(100);
-    let mut core = Core::new().unwrap();
-    let mut num_calls = 0;
-    let res = {
-        let fut = Retry::spawn(core.handle(), s, || {
-            num_calls += 1;
-            if num_calls < 4 {
-                Err::<(), u64>(42)
-            } else {
-                Ok::<(), u64>(())
-            }
-        });
-        core.run(fut)
-    };
-
-    assert_eq!(res, Ok(()));
-    assert_eq!(num_calls, 4);
-}
-
-#[test]
-fn attempts_retry_only_if_given_condition_is_true() {
-    use tokio_core::reactor::Core;
-    use super::strategy::FixedInterval;
-    let s = FixedInterval::from_millis(100).take(5);
-    let mut core = Core::new().unwrap();
-    let mut num_calls = 0;
-    let res = {
-        let action = || {
-            num_calls += 1;
-            Err::<(), u64>(num_calls)
-        };
-        let fut = RetryIf::spawn(core.handle(), s, action, |e: &u64| *e < 3);
-        core.run(fut)
-    };
-
-    assert_eq!(res, Err(Error::OperationError(3)));
-    assert_eq!(num_calls, 3);
 }
