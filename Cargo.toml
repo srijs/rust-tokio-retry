@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/srijs/rust-tokio-retry"
 documentation = "https://docs.rs/tokio-retry"
-keywords = ["futures", "tokio", "retry", "backoff", "middleware"]
+keywords = ["futures", "tokio", "retry", "exponential", "backoff"]
 
 [dependencies]
 futures = "0.1.11"
