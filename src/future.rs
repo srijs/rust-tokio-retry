@@ -6,7 +6,6 @@ use std::time::{Duration, Instant};
 
 use futures::{Async, Future, Poll};
 use tokio_timer::{Delay, Error as TimerError};
-use tokio_timer::timer::Handle;
 
 use super::action::Action;
 use super::condition::Condition;
@@ -82,16 +81,8 @@ pub struct Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
 
 impl<I, A> Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
     pub fn spawn<T: IntoIterator<IntoIter=I, Item=Duration>>(strategy: T, action: A) -> Retry<I, A> {
-        Retry::new(None, strategy, action)
-    }
-
-    pub fn spawn_with_handle<T: IntoIterator<IntoIter=I, Item=Duration>>(handle: Handle, strategy: T, action: A) -> Retry<I, A> {
-        Retry::new(Some(handle), strategy, action)
-    }
-
-    fn new<T: IntoIterator<IntoIter=I, Item=Duration>>(handle: Option<Handle>, strategy: T, action: A) -> Retry<I, A> {
         Retry {
-            retry_if: RetryIf::new(handle, strategy, action, (|_| true) as fn(&A::Error) -> bool)
+            retry_if: RetryIf::spawn(strategy, action, (|_| true) as fn(&A::Error) -> bool)
         }
     }
 }
@@ -111,30 +102,11 @@ pub struct RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: Cond
     strategy: I,
     state: RetryState<A>,
     action: A,
-    handle: Option<Handle>,
     condition: C
 }
 
 impl<I, A, C> RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: Condition<A::Error> {
     pub fn spawn<T: IntoIterator<IntoIter=I, Item=Duration>>(
-        strategy: T,
-        action: A,
-        condition: C
-    ) -> RetryIf<I, A, C> {
-        RetryIf::new(None, strategy, action, condition)
-    }
-
-    pub fn spawn_with_handle<T: IntoIterator<IntoIter=I, Item=Duration>>(
-        handle: Handle,
-        strategy: T,
-        action: A,
-        condition: C
-    ) -> RetryIf<I, A, C> {
-        RetryIf::new(Some(handle), strategy, action, condition)
-    }
-
-    fn new<T: IntoIterator<IntoIter=I, Item=Duration>>(
-        handle: Option<Handle>,
         strategy: T,
         mut action: A,
         condition: C
@@ -143,7 +115,6 @@ impl<I, A, C> RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: C
             strategy: strategy.into_iter(),
             state: RetryState::Running(action.run()),
             action: action,
-            handle: handle,
             condition: condition,
         }
     }
@@ -159,8 +130,7 @@ impl<I, A, C> RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: C
             None => Err(Error::OperationError(err)),
             Some(duration) => {
                 let deadline = Instant::now() + duration;
-                let handle = self.handle.clone().unwrap_or_else(Handle::current);
-                let future = handle.delay(deadline);
+                let future = Delay::new(deadline);
                 self.state = RetryState::Sleeping(future);
                 self.poll()
             }
