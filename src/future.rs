@@ -133,7 +133,7 @@ impl<I, A, C> RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: C
         RetryIf::new(Some(handle), strategy, action, condition)
     }
 
-    pub fn new<T: IntoIterator<IntoIter=I, Item=Duration>>(
+    fn new<T: IntoIterator<IntoIter=I, Item=Duration>>(
         handle: Option<Handle>,
         strategy: T,
         mut action: A,
