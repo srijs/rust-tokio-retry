@@ -4,6 +4,7 @@ version = "0.2.0"
 authors = ["Sam Rijs <srijs@airpost.net>"]
 description = "Extensible, asynchronous retry behaviours for futures/tokio"
 license = "MIT"
+readme = "README.md"
 repository = "https://github.com/srijs/rust-tokio-retry"
 documentation = "https://docs.rs/tokio-retry"
 keywords = ["futures", "tokio", "retry", "backoff", "middleware"]
@@ -16,3 +17,4 @@ tokio-timer = "0.2.1"
 [dev-dependencies]
 quickcheck = "0.6.0"
 tokio = "0.1.5"
+tokio-core = "0.1.16"
