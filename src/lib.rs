@@ -78,10 +78,6 @@
 //! # }
 //! ```
 
-extern crate futures;
-extern crate rand;
-extern crate tokio_timer;
-
 mod action;
 mod condition;
 mod future;

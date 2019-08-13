@@ -8,6 +8,7 @@ readme = "README.md"
 repository = "https://github.com/srijs/rust-tokio-retry"
 documentation = "https://docs.rs/tokio-retry"
 keywords = ["futures", "tokio", "retry", "exponential", "backoff"]
+edition = "2018"
 
 [dependencies]
 futures = "0.1.11"

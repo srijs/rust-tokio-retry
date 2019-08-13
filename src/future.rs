@@ -45,7 +45,7 @@ impl<E: error::Error> error::Error for Error<E> {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             Error::OperationError(ref err) => Some(err),
             Error::TimerError(ref err) => Some(err)
@@ -145,7 +145,7 @@ impl<I, A, C> Future for RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: A
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.state.poll() {
             RetryFuturePoll::Running(poll_result) => match poll_result {
-                Ok(async) => Ok(async),
+                Ok(ok) => Ok(ok),
                 Err(err) => {
                     if self.condition.should_retry(&err) {
                         self.retry(err)

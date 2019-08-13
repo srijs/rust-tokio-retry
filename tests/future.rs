@@ -1,9 +1,3 @@
-extern crate futures;
-extern crate tokio;
-extern crate tokio_core;
-extern crate tokio_timer;
-extern crate tokio_retry;
-
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
