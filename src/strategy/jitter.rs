@@ -1,5 +1,6 @@
+use rand::distributions::OpenClosed01;
+use rand::{thread_rng, Rng};
 use std::time::Duration;
-use rand::{random, Closed01};
 
 fn apply_jitter(duration: Duration, jitter: f64) -> Duration {
     let secs = (duration.as_secs() as f64) * jitter;
@@ -9,7 +10,7 @@ fn apply_jitter(duration: Duration, jitter: f64) -> Duration {
 }
 
 pub fn jitter(duration: Duration) -> Duration {
-    let Closed01(jitter) = random();
+    let jitter: f64 = thread_rng().sample(OpenClosed01);
     apply_jitter(duration, jitter)
 }
 
@@ -22,7 +23,7 @@ fn apply_jitter_quickcheck() {
 
     impl quickcheck::Arbitrary for ArbitraryJitter {
         fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> Self {
-            let Closed01(jitter) = g.gen();
+            let jitter: f64 = g.sample(OpenClosed01);
             ArbitraryJitter(jitter)
         }
     }
@@ -38,3 +39,4 @@ fn apply_jitter_quickcheck() {
 
     quickcheck::quickcheck(rounds_correctly as fn(u64, ArbitraryJitter) -> bool)
 }
+

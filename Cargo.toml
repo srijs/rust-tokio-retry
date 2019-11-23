@@ -1,6 +1,6 @@
 [package]
 name = "tokio-retry"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Sam Rijs <srijs@airpost.net>"]
 description = "Extensible, asynchronous retry behaviours for futures/tokio"
 license = "MIT"
@@ -12,10 +12,10 @@ edition = "2018"
 
 [dependencies]
 futures = "0.1.11"
-rand = "0.4.0"
+rand = "0.7.0"
 tokio-timer = "0.2.1"
 
 [dev-dependencies]
-quickcheck = "0.6.0"
+quickcheck = "0.9.0"
 tokio = "0.1.5"
 tokio-core = "0.1.17"
