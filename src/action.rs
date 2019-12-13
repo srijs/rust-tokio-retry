@@ -1,9 +1,9 @@
-use futures::{IntoFuture, Future};
+use futures::future::Future;
 
 /// An action can be run multiple times and produces a future.
 pub trait Action {
     /// The future that this action produces.
-    type Future: Future<Item=Self::Item, Error=Self::Error>;
+    type Future: Future<Output=Result<Self::Item, Self::Error>>;
     /// The item that the future may resolve with.
     type Item;
     /// The error that the future may resolve with.
@@ -12,12 +12,12 @@ pub trait Action {
     fn run(&mut self) -> Self::Future;
 }
 
-impl<T: IntoFuture, F: FnMut() -> T> Action for F {
-    type Item = T::Item;
-    type Error = T::Error;
-    type Future = T::Future;
+impl<R, E, T: Future<Output = Result<R, E>>, F: FnMut() -> T> Action for F {
+    type Item = R;
+    type Error = E;
+    type Future = T;
 
     fn run(&mut self) -> Self::Future {
-        self().into_future()
+        self()
     }
 }

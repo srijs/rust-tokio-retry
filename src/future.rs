@@ -2,80 +2,43 @@ use std::iter::{Iterator, IntoIterator};
 use std::error;
 use std::cmp;
 use std::fmt;
-use std::time::{Duration, Instant};
+use std::pin::Pin;
 
-use futures::{Async, Future, Poll};
-use tokio_timer::{Delay, Error as TimerError};
+use futures::{Future, task::{Poll, Context}};
+use tokio::time::{Delay, Error as TimerError, delay_until, Duration, Instant};
+use pin_project::{pin_project, project, project_ref};
 
 use super::action::Action;
 use super::condition::Condition;
 
-/// Represents the errors possible during the execution of the `RetryFuture`.
-#[derive(Debug)]
-pub enum Error<E> {
-    OperationError(E),
-    TimerError(TimerError)
-}
-
-impl<E: cmp::PartialEq> cmp::PartialEq for Error<E> {
-    fn eq(&self, other: &Error<E>) -> bool  {
-        match (self, other) {
-            (&Error::TimerError(_), _) => false,
-            (_, &Error::TimerError(_)) => false,
-            (&Error::OperationError(ref left_err), &Error::OperationError(ref right_err)) =>
-                left_err.eq(right_err)
-        }
-    }
-}
-
-impl<E: fmt::Display> fmt::Display for Error<E> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match *self {
-            Error::OperationError(ref err) => err.fmt(formatter),
-            Error::TimerError(ref err) => err.fmt(formatter)
-        }
-    }
-}
-
-impl<E: error::Error> error::Error for Error<E> {
-    fn description(&self) -> &str {
-        match *self {
-            Error::OperationError(ref err) => err.description(),
-            Error::TimerError(ref err) => err.description()
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-        match *self {
-            Error::OperationError(ref err) => Some(err),
-            Error::TimerError(ref err) => Some(err)
-        }
-    }
-}
-
+#[pin_project]
 enum RetryState<A> where A: Action {
-    Running(A::Future),
-    Sleeping(Delay)
+    Running(#[pin] A::Future),
+    Sleeping(#[pin] Delay)
 }
 
 impl<A: Action> RetryState<A> {
-    fn poll(&mut self) -> RetryFuturePoll<A> {
-        match *self {
-            RetryState::Running(ref mut future) =>
-                RetryFuturePoll::Running(future.poll()),
-            RetryState::Sleeping(ref mut future) =>
-                RetryFuturePoll::Sleeping(future.poll())
+    #[project]
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> RetryFuturePoll<A> {
+        #[project]
+        match self.project() {
+            RetryState::Running(future) =>
+                RetryFuturePoll::Running(future.poll(cx)),
+            RetryState::Sleeping(future) =>
+                RetryFuturePoll::Sleeping(future.poll(cx))
         }
     }
 }
 
 enum RetryFuturePoll<A> where A: Action {
-    Running(Poll<A::Item, A::Error>),
-    Sleeping(Poll<(), TimerError>)
+    Running(Poll<Result<A::Item, A::Error>>),
+    Sleeping(Poll<()>)
 }
 
 /// Future that drives multiple attempts at an action via a retry strategy.
+#[pin_project]
 pub struct Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
+    #[pin]
     retry_if: RetryIf<I, A, fn(&A::Error) -> bool>
 }
 
@@ -88,18 +51,20 @@ impl<I, A> Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
 }
 
 impl<I, A> Future for Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
-    type Item = A::Item;
-    type Error = Error<A::Error>;
+    type Output = Result<A::Item, A::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.retry_if.poll()
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let this = self.project();
+        this.retry_if.poll(cx)
     }
 }
 
 /// Future that drives multiple attempts at an action via a retry strategy. Retries are only attempted if
 /// the `Error` returned by the future satisfies a given condition.
+#[pin_project]
 pub struct RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: Condition<A::Error> {
     strategy: I,
+    #[pin]
     state: RetryState<A>,
     action: A,
     condition: C
@@ -119,45 +84,52 @@ impl<I, A, C> RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: C
         }
     }
 
-    fn attempt(&mut self) -> Poll<A::Item, Error<A::Error>> {
-        let future = self.action.run();
-        self.state = RetryState::Running(future);
-        self.poll()
+    fn attempt(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<A::Item, A::Error>> {
+        let future = {
+            let mut this = self.as_mut().project();
+            this.action.run()
+        };
+        self.as_mut().project().state.set(RetryState::Running(future));
+        self.poll(cx)
     }
 
-    fn retry(&mut self, err: A::Error) -> Poll<A::Item, Error<A::Error>> {
-        match self.strategy.next() {
-            None => Err(Error::OperationError(err)),
+    fn retry(mut self: Pin<&mut Self>, err: A::Error, cx: &mut Context) -> Result<Poll<Result<A::Item, A::Error>>, A::Error> {
+        match self.as_mut().project().strategy.next() {
+            None => Err(err),
             Some(duration) => {
                 let deadline = Instant::now() + duration;
-                let future = Delay::new(deadline);
-                self.state = RetryState::Sleeping(future);
-                self.poll()
+                let future = delay_until(deadline);
+                self.as_mut().project().state.set(RetryState::Sleeping(future));
+                Ok(self.poll(cx))
             }
         }
     }
 }
 
 impl<I, A, C> Future for RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: Condition<A::Error> {
-    type Item = A::Item;
-    type Error = Error<A::Error>;
+    type Output = Result<A::Item, A::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.state.poll() {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match self.as_mut().project().state.poll(cx) {
             RetryFuturePoll::Running(poll_result) => match poll_result {
-                Ok(ok) => Ok(ok),
-                Err(err) => {
-                    if self.condition.should_retry(&err) {
-                        self.retry(err)
+                Poll::Ready(Ok(ok)) => {
+                    Poll::Ready(Ok(ok))
+                },
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(Err(err)) => {
+                    if self.as_mut().project().condition.should_retry(&err) {
+                        match self.retry(err, cx) {
+                            Ok(poll) => poll,
+                            Err(err) => Poll::Ready(Err(err))
+                        }
                     } else {
-                        Err(Error::OperationError(err))
+                        Poll::Ready(Err(err))
                     }
                 }
             },
             RetryFuturePoll::Sleeping(poll_result) => match poll_result {
-                Ok(Async::NotReady) => Ok(Async::NotReady),
-                Ok(Async::Ready(_)) => self.attempt(),
-                Err(err) => Err(Error::TimerError(err))
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(_) => self.attempt(cx),
             }
         }
     }
