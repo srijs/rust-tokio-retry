@@ -1,61 +1,15 @@
 use std::iter::{Iterator, IntoIterator};
-use std::error;
-use std::cmp;
-use std::fmt;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use futures::{Async, Future, Poll};
-use tokio_timer::{Delay, Error as TimerError};
+use futures03::future::{FutureExt, TryFutureExt};
 
 use super::action::Action;
 use super::condition::Condition;
 
-/// Represents the errors possible during the execution of the `RetryFuture`.
-#[derive(Debug)]
-pub enum Error<E> {
-    OperationError(E),
-    TimerError(TimerError)
-}
-
-impl<E: cmp::PartialEq> cmp::PartialEq for Error<E> {
-    fn eq(&self, other: &Error<E>) -> bool  {
-        match (self, other) {
-            (&Error::TimerError(_), _) => false,
-            (_, &Error::TimerError(_)) => false,
-            (&Error::OperationError(ref left_err), &Error::OperationError(ref right_err)) =>
-                left_err.eq(right_err)
-        }
-    }
-}
-
-impl<E: fmt::Display> fmt::Display for Error<E> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match *self {
-            Error::OperationError(ref err) => err.fmt(formatter),
-            Error::TimerError(ref err) => err.fmt(formatter)
-        }
-    }
-}
-
-impl<E: error::Error> error::Error for Error<E> {
-    fn description(&self) -> &str {
-        match *self {
-            Error::OperationError(ref err) => err.description(),
-            Error::TimerError(ref err) => err.description()
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-        match *self {
-            Error::OperationError(ref err) => Some(err),
-            Error::TimerError(ref err) => Some(err)
-        }
-    }
-}
-
 enum RetryState<A> where A: Action {
     Running(A::Future),
-    Sleeping(Delay)
+    Sleeping(tokio::time::Delay)
 }
 
 impl<A: Action> RetryState<A> {
@@ -64,14 +18,14 @@ impl<A: Action> RetryState<A> {
             RetryState::Running(ref mut future) =>
                 RetryFuturePoll::Running(future.poll()),
             RetryState::Sleeping(ref mut future) =>
-                RetryFuturePoll::Sleeping(future.poll())
+                RetryFuturePoll::Sleeping(future.unit_error().compat().poll())
         }
     }
 }
 
 enum RetryFuturePoll<A> where A: Action {
     Running(Poll<A::Item, A::Error>),
-    Sleeping(Poll<(), TimerError>)
+    Sleeping(Poll<(), ()>)
 }
 
 /// Future that drives multiple attempts at an action via a retry strategy.
@@ -89,7 +43,7 @@ impl<I, A> Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
 
 impl<I, A> Future for Retry<I, A> where I: Iterator<Item=Duration>, A: Action {
     type Item = A::Item;
-    type Error = Error<A::Error>;
+    type Error = A::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.retry_if.poll()
@@ -119,18 +73,17 @@ impl<I, A, C> RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: C
         }
     }
 
-    fn attempt(&mut self) -> Poll<A::Item, Error<A::Error>> {
+    fn attempt(&mut self) -> Poll<A::Item, A::Error> {
         let future = self.action.run();
         self.state = RetryState::Running(future);
         self.poll()
     }
 
-    fn retry(&mut self, err: A::Error) -> Poll<A::Item, Error<A::Error>> {
+    fn retry(&mut self, err: A::Error) -> Poll<A::Item, A::Error> {
         match self.strategy.next() {
-            None => Err(Error::OperationError(err)),
+            None => Err(err),
             Some(duration) => {
-                let deadline = Instant::now() + duration;
-                let future = Delay::new(deadline);
+                let future = tokio::time::delay_for(duration);
                 self.state = RetryState::Sleeping(future);
                 self.poll()
             }
@@ -140,7 +93,7 @@ impl<I, A, C> RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: C
 
 impl<I, A, C> Future for RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: Condition<A::Error> {
     type Item = A::Item;
-    type Error = Error<A::Error>;
+    type Error = A::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.state.poll() {
@@ -150,14 +103,14 @@ impl<I, A, C> Future for RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: A
                     if self.condition.should_retry(&err) {
                         self.retry(err)
                     } else {
-                        Err(Error::OperationError(err))
+                        Err(err)
                     }
                 }
             },
             RetryFuturePoll::Sleeping(poll_result) => match poll_result {
                 Ok(Async::NotReady) => Ok(Async::NotReady),
                 Ok(Async::Ready(_)) => self.attempt(),
-                Err(err) => Err(Error::TimerError(err))
+                Err(()) => unreachable!(), // `Delay` never errors.
             }
         }
     }

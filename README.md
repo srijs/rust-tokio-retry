@@ -26,6 +26,7 @@ extern crate tokio;
 extern crate tokio_retry;
 
 use futures::Future;
+use futures03::compat::Future01CompatExt;
 use tokio_retry::Retry;
 use tokio_retry::strategy::{ExponentialBackoff, jitter};
 
@@ -34,16 +35,16 @@ fn action() -> Result<u64, ()> {
     Ok(42)
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let retry_strategy = ExponentialBackoff::from_millis(10)
         .map(jitter)
         .take(3);
 
-    let future = Retry::spawn(retry_strategy, action).then(|result| {
+    let future = Retry::spawn(retry_strategy, action).map(|result| {
         println!("result {:?}", result);
-        Ok(())
     });
 
-    tokio::run(future);
+    future.compat().await;
 }
 ```
