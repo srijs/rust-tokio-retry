@@ -1,22 +1,24 @@
-use std::time::Duration;
 use std::iter::Iterator;
+use std::time::Duration;
 
 /// A retry strategy driven by a fixed interval.
 #[derive(Debug, Clone)]
 pub struct FixedInterval {
-    duration: Duration
+    duration: Duration,
 }
 
 impl FixedInterval {
     /// Constructs a new fixed interval strategy.
     pub fn new(duration: Duration) -> FixedInterval {
-        FixedInterval{duration: duration}
+        FixedInterval { duration: duration }
     }
 
     /// Constructs a new fixed interval strategy,
     /// given a duration in milliseconds.
     pub fn from_millis(millis: u64) -> FixedInterval {
-        FixedInterval{duration: Duration::from_millis(millis)}
+        FixedInterval {
+            duration: Duration::from_millis(millis),
+        }
     }
 }
 

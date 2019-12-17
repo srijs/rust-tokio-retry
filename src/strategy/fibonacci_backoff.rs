@@ -1,5 +1,5 @@
-use std::time::Duration;
 use std::iter::Iterator;
+use std::time::Duration;
 use std::u64::MAX as U64_MAX;
 
 /// A retry strategy driven by the fibonacci series.
