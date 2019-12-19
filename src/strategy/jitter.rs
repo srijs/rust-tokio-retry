@@ -16,6 +16,7 @@ pub fn jitter(duration: Duration) -> Duration {
 #[test]
 fn apply_jitter_quickcheck() {
     extern crate quickcheck;
+    use rand::Rng;
 
     #[derive(Clone, Debug)]
     struct ArbitraryJitter(f64);
