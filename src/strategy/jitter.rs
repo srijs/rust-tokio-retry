@@ -1,5 +1,5 @@
-use std::time::Duration;
 use rand::{random, Closed01};
+use std::time::Duration;
 
 fn apply_jitter(duration: Duration, jitter: f64) -> Duration {
     let secs = (duration.as_secs() as f64) * jitter;

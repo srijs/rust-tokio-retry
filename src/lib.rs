@@ -21,11 +21,12 @@
 //! # extern crate tokio_retry;
 //! #
 //! # use futures::Future;
-//! # use futures::future::lazy;
+//! # use futures::future::{ready, lazy, FutureExt};
+//! use tokio::runtime::Runtime;
 //! use tokio_retry::Retry;
 //! use tokio_retry::strategy::{ExponentialBackoff, jitter};
 //!
-//! fn action() -> Result<u64, ()> {
+//! async fn action() -> Result<u64, ()> {
 //!     // do some real-world stuff here...
 //!     Err(())
 //! }
@@ -35,55 +36,24 @@
 //!     .map(jitter)
 //!     .take(3);
 //!
-//! let future = Retry::spawn(retry_strategy, action).then(|result| {
+//! let future = Retry::new(retry_strategy, action).then(|result| {
 //!     println!("result {:?}", result);
-//!     Ok(())
+//!     ready(Ok::<(),()>(()))
 //! });
 //!
-//! tokio::run(future);
-//! # }
-//! ```
-//!
-//! ## Using the `tokio_core` crate
-//!
-//! ```rust
-//! # extern crate futures;
-//! # extern crate tokio_core;
-//! # extern crate tokio_retry;
-//! #
-//! # use futures::Future;
-//! # use futures::future::lazy;
-//! use tokio_core::reactor::Core;
-//! use tokio_retry::Retry;
-//! use tokio_retry::strategy::{ExponentialBackoff, jitter};
-//!
-//! fn action() -> Result<u64, ()> {
-//!     // do some real-world stuff here...
-//!     Err(())
-//! }
-//!
-//! # fn main() {
-//! let mut core = Core::new().unwrap();
-//!
-//! let retry_strategy = ExponentialBackoff::from_millis(10)
-//!     .map(jitter)
-//!     .take(3);
-//!
-//! let future = Retry::spawn(retry_strategy, action).then(|result| {
-//!     println!("result {:?}", result);
-//!     Ok::<_, ()>(())
-//! });
-//!
-//! core.run(future).unwrap();
+//! let mut rt = Runtime::new().expect("create runtime");
+//! rt.block_on(future).expect("retry future");
 //! # }
 //! ```
 
 mod action;
 mod condition;
+mod error;
 mod future;
 /// Assorted retry strategies including fixed interval and exponential back-off.
 pub mod strategy;
 
 pub use action::Action;
 pub use condition::Condition;
-pub use future::{Error, Retry, RetryIf};
+pub use error::Error;
+pub use future::{Retry, RetryIf};

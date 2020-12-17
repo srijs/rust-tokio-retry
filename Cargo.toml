@@ -11,11 +11,10 @@ keywords = ["futures", "tokio", "retry", "exponential", "backoff"]
 edition = "2018"
 
 [dependencies]
-futures = "0.1.11"
+futures = "0.3.8"
 rand = "0.4.0"
-tokio-timer = "0.2.1"
+tokio = { version = "0.2.23", features = ["time"] }
 
 [dev-dependencies]
 quickcheck = "0.6.0"
-tokio = "0.1.5"
-tokio-core = "0.1.17"
+tokio = { version = "0.2.23", features = ["full"] }
