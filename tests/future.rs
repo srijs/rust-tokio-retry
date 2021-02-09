@@ -9,7 +9,7 @@ use tokio_retry::{Retry, RetryIf};
 #[test]
 fn attempts_just_once() {
     use std::iter::empty;
-    let mut runtime = Runtime::new().unwrap();
+    let runtime = Runtime::new().unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
     let cloned_counter = counter.clone();
     let future = Retry::spawn(empty(), move || {
@@ -27,7 +27,7 @@ fn attempts_just_once() {
 fn attempts_until_max_retries_exceeded() {
     use tokio_retry::strategy::FixedInterval;
     let s = FixedInterval::from_millis(100).take(2);
-    let mut runtime = Runtime::new().unwrap();
+    let runtime = Runtime::new().unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
     let cloned_counter = counter.clone();
     let future = Retry::spawn(s, move || {
@@ -44,7 +44,7 @@ fn attempts_until_max_retries_exceeded() {
 fn attempts_until_success() {
     use tokio_retry::strategy::FixedInterval;
     let s = FixedInterval::from_millis(100);
-    let mut runtime = Runtime::new().unwrap();
+    let runtime = Runtime::new().unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
     let cloned_counter = counter.clone();
     let future = Retry::spawn(s, move || {
@@ -65,7 +65,7 @@ fn attempts_until_success() {
 fn compatible_with_tokio_core() {
     use tokio_retry::strategy::FixedInterval;
     let s = FixedInterval::from_millis(100);
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
     let cloned_counter = counter.clone();
     let future = Retry::spawn(s, move || {
@@ -86,7 +86,7 @@ fn compatible_with_tokio_core() {
 fn attempts_retry_only_if_given_condition_is_true() {
     use tokio_retry::strategy::FixedInterval;
     let s = FixedInterval::from_millis(100).take(5);
-    let mut runtime = Runtime::new().unwrap();
+    let runtime = Runtime::new().unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
     let cloned_counter = counter.clone();
     let future: RetryIf<Take<FixedInterval>, _, fn(&usize) -> _> = RetryIf::spawn(

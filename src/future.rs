@@ -5,7 +5,7 @@ use std::fmt;
 use std::pin::Pin;
 
 use futures::{Future, task::{Poll, Context}};
-use tokio::time::{Delay, Error as TimerError, delay_until, Duration, Instant};
+use tokio::time::{Sleep, sleep_until, Duration, Instant};
 use pin_project::{pin_project, project, project_ref};
 
 use super::action::Action;
@@ -14,7 +14,7 @@ use super::condition::Condition;
 #[pin_project]
 enum RetryState<A> where A: Action {
     Running(#[pin] A::Future),
-    Sleeping(#[pin] Delay)
+    Sleeping(#[pin] Sleep)
 }
 
 impl<A: Action> RetryState<A> {
@@ -98,7 +98,7 @@ impl<I, A, C> RetryIf<I, A, C> where I: Iterator<Item=Duration>, A: Action, C: C
             None => Err(err),
             Some(duration) => {
                 let deadline = Instant::now() + duration;
-                let future = delay_until(deadline);
+                let future = sleep_until(deadline);
                 self.as_mut().project().state.set(RetryState::Sleeping(future));
                 Ok(self.poll(cx))
             }
