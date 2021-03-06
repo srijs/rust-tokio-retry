@@ -1,7 +1,7 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::future;
 use std::iter::Take;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use tokio_retry::{Retry, RetryIf};
 
