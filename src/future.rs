@@ -6,13 +6,13 @@ use std::iter::{IntoIterator, Iterator};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use pin_project::{pin_project, project, project_ref};
+use pin_project::pin_project;
 use tokio::time::{sleep_until, Duration, Instant, Sleep};
 
 use super::action::Action;
 use super::condition::Condition;
 
-#[pin_project]
+#[pin_project(project = RetryStateProj)]
 enum RetryState<A>
 where
     A: Action,
@@ -22,12 +22,10 @@ where
 }
 
 impl<A: Action> RetryState<A> {
-    #[project]
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> RetryFuturePoll<A> {
-        #[project]
         match self.project() {
-            RetryState::Running(future) => RetryFuturePoll::Running(future.poll(cx)),
-            RetryState::Sleeping(future) => RetryFuturePoll::Sleeping(future.poll(cx)),
+            RetryStateProj::Running(future) => RetryFuturePoll::Running(future.poll(cx)),
+            RetryStateProj::Sleeping(future) => RetryFuturePoll::Sleeping(future.poll(cx)),
         }
     }
 }
