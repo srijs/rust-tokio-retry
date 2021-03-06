@@ -7,7 +7,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! tokio-retry = "0.2"
+//! tokio-retry = "0.3"
 //! ```
 //!
 //! # Example

@@ -1,6 +1,6 @@
 # tokio-retry
 
-Extensible, asynchronous retry behaviours based on [futures](https://crates.io/crates/futures), for the ecosystem of [tokio](https://tokio.rs/) libraries.
+Extensible, asynchronous retry behaviours for the ecosystem of [tokio](https://tokio.rs/) libraries.
 
 [![Build Status](https://travis-ci.org/srijs/rust-tokio-retry.svg?branch=master)](https://travis-ci.org/srijs/rust-tokio-retry)
 [![crates](http://meritbadge.herokuapp.com/tokio-retry)](https://crates.io/crates/tokio-retry)
@@ -15,35 +15,28 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-tokio-retry = "0.2"
+tokio-retry = "0.3"
 ```
 
 ## Examples
 
 ```rust
-extern crate futures;
-extern crate tokio;
-extern crate tokio_retry;
-
-use futures::Future;
 use tokio_retry::Retry;
 use tokio_retry::strategy::{ExponentialBackoff, jitter};
 
-fn action() -> Result<u64, ()> {
+async fn action() -> Result<u64, ()> {
     // do some real-world stuff here...
-    Ok(42)
+    Err(())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), ()> {
     let retry_strategy = ExponentialBackoff::from_millis(10)
-        .map(jitter)
-        .take(3);
+        .map(jitter) // add jitter to delays
+        .take(3);    // limit to 3 retries
 
-    let future = Retry::spawn(retry_strategy, action).then(|result| {
-        println!("result {:?}", result);
-        Ok(())
-    });
+    let result = Retry::spawn(retry_strategy, action).await?;
 
-    tokio::run(future);
+    Ok(())
 }
 ```
