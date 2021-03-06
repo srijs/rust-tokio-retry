@@ -1,50 +1,45 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::future;
-
 use std::iter::Take;
-use tokio::runtime::Runtime;
+
 use tokio_retry::{Retry, RetryIf};
 
-#[test]
-fn attempts_just_once() {
+#[tokio::test]
+async fn attempts_just_once() {
     use std::iter::empty;
-    let runtime = Runtime::new().unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
     let cloned_counter = counter.clone();
     let future = Retry::spawn(empty(), move || {
         cloned_counter.fetch_add(1, Ordering::SeqCst);
         future::ready(Err::<(), u64>(42))
     });
-
-    let res = runtime.block_on(future);
+    let res = future.await;
 
     assert_eq!(res, Err(42));
     assert_eq!(counter.load(Ordering::SeqCst), 1);
 }
 
-#[test]
-fn attempts_until_max_retries_exceeded() {
+#[tokio::test]
+async fn attempts_until_max_retries_exceeded() {
     use tokio_retry::strategy::FixedInterval;
     let s = FixedInterval::from_millis(100).take(2);
-    let runtime = Runtime::new().unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
     let cloned_counter = counter.clone();
     let future = Retry::spawn(s, move || {
         cloned_counter.fetch_add(1, Ordering::SeqCst);
         future::ready(Err::<(), u64>(42))
     });
-    let res = runtime.block_on(future);
+    let res = future.await;
 
     assert_eq!(res, Err(42));
     assert_eq!(counter.load(Ordering::SeqCst), 3);
 }
 
-#[test]
-fn attempts_until_success() {
+#[tokio::test]
+async fn attempts_until_success() {
     use tokio_retry::strategy::FixedInterval;
     let s = FixedInterval::from_millis(100);
-    let runtime = Runtime::new().unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
     let cloned_counter = counter.clone();
     let future = Retry::spawn(s, move || {
@@ -55,17 +50,16 @@ fn attempts_until_success() {
             future::ready(Ok::<(), u64>(()))
         }
     });
-    let res = runtime.block_on(future);
+    let res = future.await;
 
     assert_eq!(res, Ok(()));
     assert_eq!(counter.load(Ordering::SeqCst), 4);
 }
 
-#[test]
-fn compatible_with_tokio_core() {
+#[tokio::test]
+async fn compatible_with_tokio_core() {
     use tokio_retry::strategy::FixedInterval;
     let s = FixedInterval::from_millis(100);
-    let rt = Runtime::new().unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
     let cloned_counter = counter.clone();
     let future = Retry::spawn(s, move || {
@@ -76,17 +70,16 @@ fn compatible_with_tokio_core() {
             future::ready(Ok::<(), u64>(()))
         }
     });
-    let res = rt.block_on(future);
+    let res = future.await;
 
     assert_eq!(res, Ok(()));
     assert_eq!(counter.load(Ordering::SeqCst), 4);
 }
 
-#[test]
-fn attempts_retry_only_if_given_condition_is_true() {
+#[tokio::test]
+async fn attempts_retry_only_if_given_condition_is_true() {
     use tokio_retry::strategy::FixedInterval;
     let s = FixedInterval::from_millis(100).take(5);
-    let runtime = Runtime::new().unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
     let cloned_counter = counter.clone();
     let future: RetryIf<Take<FixedInterval>, _, fn(&usize) -> _> = RetryIf::spawn(
@@ -97,7 +90,7 @@ fn attempts_retry_only_if_given_condition_is_true() {
         },
         |e: &usize| *e < 3,
     );
-    let res = runtime.block_on(future);
+    let res = future.await;
 
     assert_eq!(res, Err(3));
     assert_eq!(counter.load(Ordering::SeqCst), 3);
