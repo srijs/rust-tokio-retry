@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::future;
 
-use futures::future::{err, ok};
 use std::iter::Take;
 use tokio::runtime::Runtime;
 use tokio_retry::{Retry, RetryIf};
@@ -14,7 +14,7 @@ fn attempts_just_once() {
     let cloned_counter = counter.clone();
     let future = Retry::spawn(empty(), move || {
         cloned_counter.fetch_add(1, Ordering::SeqCst);
-        err::<(), u64>(42)
+        future::ready(Err::<(), u64>(42))
     });
 
     let res = runtime.block_on(future);
@@ -32,7 +32,7 @@ fn attempts_until_max_retries_exceeded() {
     let cloned_counter = counter.clone();
     let future = Retry::spawn(s, move || {
         cloned_counter.fetch_add(1, Ordering::SeqCst);
-        err::<(), u64>(42)
+        future::ready(Err::<(), u64>(42))
     });
     let res = runtime.block_on(future);
 
@@ -50,9 +50,9 @@ fn attempts_until_success() {
     let future = Retry::spawn(s, move || {
         let previous = cloned_counter.fetch_add(1, Ordering::SeqCst);
         if previous < 3 {
-            err::<(), u64>(42)
+            future::ready(Err::<(), u64>(42))
         } else {
-            ok::<(), u64>(())
+            future::ready(Ok::<(), u64>(()))
         }
     });
     let res = runtime.block_on(future);
@@ -71,9 +71,9 @@ fn compatible_with_tokio_core() {
     let future = Retry::spawn(s, move || {
         let previous = cloned_counter.fetch_add(1, Ordering::SeqCst);
         if previous < 3 {
-            err::<(), u64>(42)
+            future::ready(Err::<(), u64>(42))
         } else {
-            ok::<(), u64>(())
+            future::ready(Ok::<(), u64>(()))
         }
     });
     let res = rt.block_on(future);
@@ -93,7 +93,7 @@ fn attempts_retry_only_if_given_condition_is_true() {
         s,
         move || {
             let previous = cloned_counter.fetch_add(1, Ordering::SeqCst);
-            err::<(), usize>(previous + 1)
+            future::ready(Err::<(), usize>(previous + 1))
         },
         |e: &usize| *e < 3,
     );

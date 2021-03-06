@@ -3,8 +3,9 @@ use std::error;
 use std::cmp;
 use std::fmt;
 use std::pin::Pin;
+use std::future::Future;
+use std::task::{Poll, Context};
 
-use futures::{Future, task::{Poll, Context}};
 use tokio::time::{Sleep, sleep_until, Duration, Instant};
 use pin_project::{pin_project, project, project_ref};
 

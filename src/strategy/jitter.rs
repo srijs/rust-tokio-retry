@@ -1,4 +1,5 @@
 use std::time::Duration;
+
 use rand::{random, Closed01};
 
 fn apply_jitter(duration: Duration, jitter: f64) -> Duration {

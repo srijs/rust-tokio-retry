@@ -1,6 +1,5 @@
 //! This library provides extensible asynchronous retry behaviours
-//! for use with the popular [`futures`](https://crates.io/crates/futures) crate
-//! and the ecosystem of [`tokio`](https://tokio.rs/) libraries.
+//! for use with the ecosystem of [`tokio`](https://tokio.rs/) libraries.
 //!
 //! # Installation
 //!
@@ -11,39 +10,28 @@
 //! tokio-retry = "0.2"
 //! ```
 //!
-//! # Examples
+//! # Example
 //!
-//! ## Using the `tokio` crate
-//!
-//! ```rust
+//! ```rust,no_run
 //! # extern crate tokio;
 //! # extern crate tokio_retry;
-//! # extern crate futures;
 //! #
-//! # use std::future::Future;
-//! # use futures::prelude::*;
-//! use tokio::runtime::Runtime;
 //! use tokio_retry::Retry;
 //! use tokio_retry::strategy::{ExponentialBackoff, jitter};
 //!
-//! fn action() -> impl Future<Output=Result<u64, ()>> {
+//! async fn action() -> Result<u64, ()> {
 //!     // do some real-world stuff here...
-//!     futures::future::err(())
+//!     Err(())
 //! }
 //!
-//! # fn main() {
-//! let mut rt = Runtime::new().unwrap();
-//!
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), ()> {
 //! let retry_strategy = ExponentialBackoff::from_millis(10)
-//!     .map(jitter)
-//!     .take(3);
+//!     .map(jitter) // add jitter to delays
+//!     .take(3);    // limit to 3 retries
 //!
-//! let future = Retry::spawn(retry_strategy, action).then(|result| {
-//!     println!("result {:?}", result);
-//!     futures::future::ok::<_, ()>(())
-//! });
-//!
-//! rt.block_on(future);
+//! let result = Retry::spawn(retry_strategy, action).await?;
+//! # Ok(())
 //! # }
 //! ```
 

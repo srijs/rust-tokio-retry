@@ -1,4 +1,4 @@
-use futures::future::Future;
+use std::future::Future;
 
 /// An action can be run multiple times and produces a future.
 pub trait Action {
