@@ -17,7 +17,7 @@
 //! # extern crate tokio_retry;
 //! #
 //! use tokio_retry::Retry;
-//! use tokio_retry::strategy::{ExponentialBackoff, jitter};
+//! use tokio_retry::strategy::ExponentialBackoff;
 //!
 //! async fn action() -> Result<u64, ()> {
 //!     // do some real-world stuff here...
@@ -27,13 +27,38 @@
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), ()> {
 //! let retry_strategy = ExponentialBackoff::from_millis(10)
-//!     .map(jitter) // add jitter to delays
 //!     .take(3);    // limit to 3 retries
 //!
 //! let result = Retry::spawn(retry_strategy, action).await?;
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # Features
+//! [jitter]
+//!
+//! To use jitter, add this to your Cargo.toml
+//!
+//! ```toml
+//! [dependencies]
+//! tokio-retry = { version = "0.3", features = ["jitter"] }
+//! ```
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! # extern crate tokio;
+//! # extern crate tokio_retry;
+//! #
+//! use tokio_retry::Retry;
+//! use tokio_retry::strategy::{ExponentialBackoff, jitter};
+//!
+//! let retry_strategy = ExponentialBackoff::from_millis(10)
+//!    .map(jitter) // add jitter to the retry interval
+//!    .take(3);    // limit to 3 retries
+//!
+//!
+//!
 
 #![allow(warnings)]
 
