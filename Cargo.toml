@@ -11,9 +11,12 @@ keywords = ["futures", "tokio", "retry", "exponential", "backoff"]
 edition = "2018"
 
 [dependencies]
-rand = "0.8.3"
+rand = { version = "0.8.3", optional = true }
 tokio = { version = "1.0", features = ["time"] }
 pin-project = "1.0.5"
+
+[features]
+jitter = ["rand"]
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }
